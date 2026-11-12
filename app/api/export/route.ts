@@ -29,6 +29,7 @@ type ComponentExport = {
   co2e_source: string | null;
   notes: string | null;
   status: string;
+  created_at: string;
   updated_at: string;
 };
 
@@ -46,6 +47,8 @@ type Copy = {
   statusVerified: string;
   exported: string;
   unavailable: string;
+  periodLabel: (from: string, to: string) => string;
+  allData: string;
 };
 
 const COPY: Record<"en" | "it", Copy> = {
@@ -72,6 +75,7 @@ const COPY: Record<"en" | "it", Copy> = {
       "Status",
       "Notes",
       "Last update",
+      "Entered on",
     ],
     exportedOn: (date) => `Exported on ${date}`,
     systemHeader: ["System", "Total cost", "Total CO₂e (kg)", "Components"],
@@ -83,6 +87,8 @@ const COPY: Record<"en" | "it", Copy> = {
     statusVerified: "Verified",
     exported: "Exported at",
     unavailable: "Export unavailable",
+    periodLabel: (from, to) => `Period: ${from} – ${to}`,
+    allData: "All data, from the first record to today",
   },
   it: {
     sheetComponents: "Componenti",
@@ -107,6 +113,7 @@ const COPY: Record<"en" | "it", Copy> = {
       "Stato",
       "Note",
       "Ultima modifica",
+      "Data inserimento",
     ],
     exportedOn: (date) => `Esportato il ${date}`,
     systemHeader: ["Sistema", "Costo totale", "CO₂e totale (kg)", "Componenti"],
@@ -118,6 +125,8 @@ const COPY: Record<"en" | "it", Copy> = {
     statusVerified: "Verificato",
     exported: "Esportato alle",
     unavailable: "Export non disponibile",
+    periodLabel: (from, to) => `Periodo: ${from} – ${to}`,
+    allData: "Tutti i dati, dal primo inserimento a oggi",
   },
 };
 
@@ -132,6 +141,10 @@ export async function GET(request: Request) {
   const teamFilter = params.get("team") ?? "";
   const statusFilter = params.get("status") ?? "";
   const search = (params.get("q") ?? "").trim().toLowerCase();
+  const fromParam = /^\d{4}-\d{2}-\d{2}$/.test(params.get("from") ?? "") ? (params.get("from") as string) : "";
+  const toParam = /^\d{4}-\d{2}-\d{2}$/.test(params.get("to") ?? "") ? (params.get("to") as string) : "";
+  const fromDate = fromParam ? new Date(`${fromParam}T00:00:00Z`) : null;
+  const toDate = toParam ? new Date(`${toParam}T23:59:59.999Z`) : null;
 
   const supabase = serverClient();
 
@@ -158,6 +171,11 @@ export async function GET(request: Request) {
     if (systemFilter && assembly.system_id !== systemFilter) return false;
     if (teamFilter && assembly.team_id !== teamFilter) return false;
     if (statusFilter && component.status !== statusFilter) return false;
+    if (fromDate || toDate) {
+      const created = new Date(component.created_at);
+      if (fromDate && created < fromDate) return false;
+      if (toDate && created > toDate) return false;
+    }
     if (!search) return true;
     const haystack = [
       component.description,
@@ -182,7 +200,7 @@ export async function GET(request: Request) {
     views: [{ state: "frozen", ySplit: 1 }],
   });
 
-  const widths = [14, 40, 22, 22, 26, 8, 15, 15, 18, 18, 20, 17, 26, 11, 22, 22, 12, 34, 18];
+  const widths = [14, 40, 22, 22, 26, 8, 15, 15, 18, 18, 20, 17, 26, 11, 22, 22, 12, 34, 18, 18];
   sheet.columns = L.headers.map((header, index) => ({ header, width: widths[index] }));
 
   sheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF111114" } };
@@ -214,6 +232,7 @@ export async function GET(request: Request) {
       component.status === "verificato" ? L.statusVerified : L.statusDraft,
       component.notes ?? "",
       component.updated_at ? new Date(component.updated_at) : "",
+      component.created_at ? new Date(component.created_at) : "",
     ]);
 
     // Live formulas: change a price in Excel and the totals follow.
@@ -226,6 +245,7 @@ export async function GET(request: Request) {
     row.getCell(10).numFmt = KG;
     row.getCell(12).numFmt = KG;
     row.getCell(19).numFmt = DATE;
+    row.getCell(20).numFmt = DATE;
   });
 
   const lastDataRow = Math.max(2, rows.length + 1);
@@ -250,7 +270,21 @@ export async function GET(request: Request) {
       }),
     ),
   ]);
-  summary.addRow([]);
+
+  // UTC keeps the label identical wherever the function runs (local dev, Vercel).
+  const dateLabel = (value: Date) =>
+    value.toLocaleDateString(lang === "it" ? "it-IT" : "en-GB", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  const periodText =
+    fromDate || toDate
+      ? L.periodLabel(fromDate ? dateLabel(fromDate) : "…", toDate ? dateLabel(toDate) : "…")
+      : L.allData;
+
+  summary.addRow([periodText]);
 
   let cursor = 4;
   const systemHeader = summary.addRow(L.systemHeader);
