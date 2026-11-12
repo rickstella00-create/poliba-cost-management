@@ -269,7 +269,9 @@ export function RegistryView() {
         <section className="section" id="panoramica">
           <div className="section__head">
             <div>
-              <p className="eyebrow">Panoramica</p>
+              <p className="eyebrow">
+                <span className="eyebrow__num">01</span>Panoramica
+              </p>
               <h1 className="section__title">Il costo e il peso della monoposto</h1>
               <p className="section__note">
                 Totali calcolati dai componenti inseriti dai team. Modificare un dato verificato lo riporta
@@ -285,7 +287,9 @@ export function RegistryView() {
             <div className="kpi kpi--accent">
               <p className="kpi__label">Costo totale</p>
               <p className="kpi__value">{loading ? "—" : eur(totals.cost)}</p>
-              <p className="kpi__hint">{num(totals.components)} componenti a registro</p>
+              <p className="kpi__hint">
+                {num(totals.components)} {totals.components === 1 ? "componente" : "componenti"} a registro
+              </p>
             </div>
             <div className="kpi">
               <p className="kpi__label">CO₂e totale</p>
@@ -379,7 +383,9 @@ export function RegistryView() {
         <section className="section" id="assiemi">
           <div className="section__head">
             <div>
-              <p className="eyebrow">Assiemi</p>
+              <p className="eyebrow">
+                <span className="eyebrow__num">02</span>Assiemi
+              </p>
               <h2 className="section__title">Un assieme per ogni gruppo di pezzi</h2>
               <p className="section__note">
                 Ogni assieme appartiene a un sistema ufficiale e a un team. I componenti vivono dentro
@@ -478,7 +484,9 @@ export function RegistryView() {
         <section className="section" id="componenti">
           <div className="section__head">
             <div>
-              <p className="eyebrow">Registro componenti</p>
+              <p className="eyebrow">
+                <span className="eyebrow__num">03</span>Registro componenti
+              </p>
               <h2 className="section__title">La BOM, pezzo per pezzo</h2>
               <p className="section__note">
                 Cerca, filtra ed esporta. Il costo totale e la CO₂e totale sono quantità × valore unitario.
@@ -629,7 +637,7 @@ export function RegistryView() {
                   <tfoot>
                     <tr className="total-row">
                       <td colSpan={4}>
-                        {num(filtered.length)} componenti
+                        {num(filtered.length)} {filtered.length === 1 ? "componente" : "componenti"}
                         {filtered.length !== components.length ? ` (filtrati da ${num(components.length)})` : ""}
                       </td>
                       <td className="num">{eur(filteredTotals.cost, true)}</td>
@@ -657,14 +665,14 @@ export function RegistryView() {
         </section>
 
         <footer className="footer">
-          <span>Cost Management</span>
+          <span>Poliba Corse · Cost Management</span>
           <span>
-            <Link href="/">Panoramica</Link> · <a href={exportHref}>Excel</a>
+            <Link href="/">Panoramica pubblica</Link> · <a href={exportHref}>Excel</a>
           </span>
         </footer>
       </main>
 
-      {AUTH_ENABLED && authOpen ? (
+      {authOpen ? (
         <AuthDialog
           onClose={() => setAuthOpen(false)}
           teams={teams}
