@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Cost & Emissions · Registro dati",
+  title: "Cost & Emissions · Data registry",
   description:
-    "Registro di costi ed emissioni della monoposto: sistemi, assiemi e componenti in un database consultabile ed esportabile.",
+    "Cost and emissions registry for the car: systems, assemblies and components in one database you can browse and export.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="it">
+    <html lang="en">
       <body>{children}</body>
     </html>
   );

@@ -26,16 +26,16 @@ export function AppHeader() {
           <Link href="/" className="brand" aria-label="Cost & Emissions, home">
             <span className="brand__text">
               <span className="brand__title">Cost &amp; Emissions</span>
-              <span className="brand__sub">registro dati monoposto</span>
+              <span className="brand__sub">single-seater data registry</span>
             </span>
           </Link>
 
-          <nav className="nav" aria-label="Navigazione principale">
-            <Link className="nav__link" href="/registro">
-              Registro
+          <nav className="nav" aria-label="Main navigation">
+            <Link className="nav__link" href="/registry">
+              Registry
             </Link>
-            <Link className="nav__link" href="/registro#assiemi">
-              Assiemi
+            <Link className="nav__link" href="/registry#assemblies">
+              Assemblies
             </Link>
             <a className="nav__link" href="/api/export">
               Excel
@@ -54,12 +54,12 @@ export function AppHeader() {
                   className="btn btn--quiet btn--sm"
                   onClick={() => supabase.auth.signOut()}
                 >
-                  Esci
+                  Sign out
                 </button>
               </>
             ) : (
               <button type="button" className="btn btn--sm" onClick={() => setAuthOpen(true)}>
-                Accedi
+                Sign in
               </button>
             )}
           </div>

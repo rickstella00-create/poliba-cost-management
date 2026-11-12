@@ -34,51 +34,51 @@ export default function HomePage() {
 
       <main className="wrap">
         <section className="hero">
-          <h1 className="display">Registro costi ed emissioni</h1>
+          <h1 className="display">Cost and emissions registry</h1>
           <p className="lede">
-            Un unico posto dove ogni team inserisce i componenti della monoposto con costo ed emissioni.
-            Sito interno: chi ha il link inserisce e modifica i dati direttamente, e li esporta in Excel
-            quando serve.
+            One place where every team records the car&apos;s components with their cost and emissions.
+            Internal site: anyone with the link can add and edit data, and export it to Excel when
+            needed.
           </p>
           <div className="hero__actions">
-            <Link className="btn btn--primary" href="/registro">
-              Apri il registro
+            <Link className="btn btn--primary" href="/registry">
+              Open the registry
             </Link>
             <a className="btn" href="/api/export">
-              Scarica Excel
+              Download Excel
             </a>
           </div>
           <div className="hero__meta">
-            <span>{num(registry.assemblies.length)} assiemi</span>
-            <span>{num(registry.components.length)} componenti</span>
-            <span>{num(teams.length)} team</span>
-            <span>{num(systems.length)} sistemi</span>
+            <span>{num(registry.assemblies.length)} assemblies</span>
+            <span>{num(registry.components.length)} components</span>
+            <span>{num(teams.length)} teams</span>
+            <span>{num(systems.length)} systems</span>
           </div>
         </section>
 
         <section className="section">
           <div className="section__head">
             <div>
-              <h2 className="section__title">Totali attuali</h2>
-              <p className="section__note">Calcolati dai componenti inseriti nei rispettivi assiemi.</p>
+              <h2 className="section__title">Current totals</h2>
+              <p className="section__note">Calculated from the components entered in their assemblies.</p>
             </div>
           </div>
 
           <div className="kpi-grid">
             <div className="kpi kpi--accent">
-              <p className="kpi__label">Costo totale</p>
+              <p className="kpi__label">Total cost</p>
               <p className="kpi__value">{loading ? "—" : eur(totals.cost)}</p>
             </div>
             <div className="kpi">
-              <p className="kpi__label">CO₂e totale</p>
+              <p className="kpi__label">Total CO₂e</p>
               <p className="kpi__value">{loading ? "—" : kg(totals.co2)}</p>
             </div>
             <div className="kpi">
-              <p className="kpi__label">Componenti</p>
+              <p className="kpi__label">Components</p>
               <p className="kpi__value">{loading ? "—" : num(totals.components)}</p>
             </div>
             <div className="kpi">
-              <p className="kpi__label">Verificati</p>
+              <p className="kpi__label">Verified</p>
               <p className="kpi__value">
                 {loading ? "—" : `${num(totals.verified)} / ${num(totals.components)}`}
               </p>
@@ -89,8 +89,8 @@ export default function HomePage() {
         <section className="section">
           <div className="section__head">
             <div>
-              <h2 className="section__title">Sistemi</h2>
-              <p className="section__note">Ogni assieme appartiene a uno di questi sistemi.</p>
+              <h2 className="section__title">Systems</h2>
+              <p className="section__note">Every assembly belongs to one of these systems.</p>
             </div>
           </div>
 
@@ -100,13 +100,13 @@ export default function HomePage() {
                 <span className="cards__name">{system.name}</span>
               </li>
             ))}
-            {systems.length === 0 && !loading ? <li>Nessun sistema caricato.</li> : null}
+            {systems.length === 0 && !loading ? <li>No systems loaded.</li> : null}
           </ul>
         </section>
 
         <footer className="footer">
-          <span>Registro costi ed emissioni</span>
-          <span>Uso interno al team</span>
+          <span>Cost and emissions registry</span>
+          <span>Internal team use</span>
         </footer>
       </main>
     </>
