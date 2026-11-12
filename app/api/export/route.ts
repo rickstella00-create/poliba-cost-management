@@ -32,8 +32,13 @@ type ComponentExport = {
   updated_at: string;
 };
 
-const MONEY = '#,##0.00" €"';
+const MONEY = '"€"#,##0.00';
 const KG = "#,##0.00";
+const DATE = "dd mmm yyyy";
+
+function statusLabel(status: string): string {
+  return status === "verificato" ? "Verified" : "Draft";
+}
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
@@ -51,7 +56,7 @@ export async function GET(request: Request) {
 
   if (assembliesResult.error || componentsResult.error) {
     return new Response(
-      `Export non disponibile: ${assembliesResult.error?.message ?? componentsResult.error?.message}`,
+      `Export unavailable: ${assembliesResult.error?.message ?? componentsResult.error?.message}`,
       { status: 500 },
     );
   }
@@ -86,31 +91,31 @@ export async function GET(request: Request) {
   workbook.creator = "Poliba Corse · Cost & Emissions";
   workbook.created = new Date();
 
-  /* ------------------------------------------------------- foglio 1: BOM */
-  const sheet = workbook.addWorksheet("Componenti", {
+  /* ------------------------------------------------------ sheet 1: the BOM */
+  const sheet = workbook.addWorksheet("Components", {
     views: [{ state: "frozen", ySplit: 1 }],
   });
 
   sheet.columns = [
-    { header: "Codice", key: "code", width: 14 },
-    { header: "Descrizione", key: "description", width: 40 },
-    { header: "Sistema", key: "system", width: 22 },
+    { header: "Code", key: "code", width: 14 },
+    { header: "Description", key: "description", width: 40 },
+    { header: "System", key: "system", width: 22 },
     { header: "Team", key: "team", width: 22 },
-    { header: "Assieme", key: "assembly", width: 26 },
-    { header: "Q.tà", key: "quantity", width: 8 },
-    { header: "Costo unitario", key: "unitCost", width: 15 },
-    { header: "Costo totale", key: "costTotal", width: 15 },
-    { header: "CO₂e unitario (kg)", key: "co2Unit", width: 18 },
-    { header: "CO₂e totale (kg)", key: "co2Total", width: 18 },
-    { header: "Materiale", key: "material", width: 20 },
-    { header: "Massa unitaria (kg)", key: "mass", width: 17 },
-    { header: "Processo", key: "process", width: 26 },
+    { header: "Assembly", key: "assembly", width: 26 },
+    { header: "Qty", key: "quantity", width: 8 },
+    { header: "Unit cost", key: "unitCost", width: 15 },
+    { header: "Total cost", key: "costTotal", width: 15 },
+    { header: "CO₂e per unit (kg)", key: "co2Unit", width: 18 },
+    { header: "Total CO₂e (kg)", key: "co2Total", width: 18 },
+    { header: "Material", key: "material", width: 20 },
+    { header: "Unit mass (kg)", key: "mass", width: 17 },
+    { header: "Process", key: "process", width: 26 },
     { header: "Make/Buy", key: "sourcing", width: 11 },
-    { header: "Fornitore", key: "supplier", width: 22 },
-    { header: "Fonte CO₂e", key: "co2Source", width: 22 },
-    { header: "Stato", key: "status", width: 12 },
-    { header: "Note", key: "notes", width: 34 },
-    { header: "Ultima modifica", key: "updatedAt", width: 18 },
+    { header: "Supplier", key: "supplier", width: 22 },
+    { header: "CO₂e source", key: "co2Source", width: 22 },
+    { header: "Status", key: "status", width: 12 },
+    { header: "Notes", key: "notes", width: 34 },
+    { header: "Last update", key: "updatedAt", width: 18 },
   ];
 
   sheet.getRow(1).font = { bold: true };
@@ -140,12 +145,12 @@ export async function GET(request: Request) {
       sourcing: component.sourcing === "make" ? "Make" : component.sourcing === "buy" ? "Buy" : "",
       supplier: component.supplier ?? "",
       co2Source: component.co2e_source ?? "",
-      status: component.status,
+      status: statusLabel(component.status),
       notes: component.notes ?? "",
       updatedAt: component.updated_at ? new Date(component.updated_at) : "",
     });
 
-    // Totali come formule vive: se cambi un prezzo in Excel, i totali si aggiornano.
+    // Live formulas: change a price in Excel and the totals follow.
     row.getCell(8).value = { formula: `F${row.number}*G${row.number}`, result: quantity * unitCost };
     row.getCell(10).value = { formula: `F${row.number}*I${row.number}`, result: quantity * co2Unit };
 
@@ -154,13 +159,13 @@ export async function GET(request: Request) {
     row.getCell(9).numFmt = KG;
     row.getCell(10).numFmt = KG;
     row.getCell(12).numFmt = KG;
-    row.getCell(19).numFmt = "dd/mm/yyyy";
+    row.getCell(19).numFmt = DATE;
   });
 
   const lastDataRow = Math.max(2, rows.length + 1);
 
-  /* --------------------------------------------------- foglio 2: riepilogo */
-  const summary = workbook.addWorksheet("Riepilogo");
+  /* ----------------------------------------------------- sheet 2: summary */
+  const summary = workbook.addWorksheet("Summary");
   summary.columns = [
     { key: "label", width: 30 },
     { key: "cost", width: 18 },
@@ -169,11 +174,11 @@ export async function GET(request: Request) {
   ];
 
   summary.addRow(["Poliba Corse · Cost & Emissions"]).font = { bold: true, size: 14 };
-  summary.addRow([`Esportato il ${new Date().toLocaleDateString("it-IT")}`]);
+  summary.addRow([`Exported on ${new Date().toLocaleDateString("en-GB")}`]);
   summary.addRow([]);
 
   let cursor = 4;
-  const systemHeader = summary.addRow(["Sistema", "Costo totale", "CO₂e totale (kg)", "Componenti"]);
+  const systemHeader = summary.addRow(["System", "Total cost", "Total CO₂e (kg)", "Components"]);
   systemHeader.font = { bold: true, color: { argb: "FFFFFFFF" } };
   systemHeader.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF111114" } };
   cursor += 1;
@@ -213,9 +218,9 @@ export async function GET(request: Request) {
       };
     }, { ...emptyTotals });
 
-  // Il totale resta una formula viva, ma con il valore già calcolato:
-  // così i numeri si vedono appena apri il file. Senza righe non c'è nulla
-  // da sommare (una SUM su un intervallo al contrario sarebbe un errore).
+  // The total stays a live formula but carries the computed value, so the
+  // numbers are there as soon as the file opens. With no rows there is nothing
+  // to sum (a SUM over a reversed range would be an error).
   const totalRowCell = (column: string, start: number, end: number, result: number) =>
     (end >= start
       ? { formula: `SUM(${column}${start}:${column}${end})`, result }
@@ -227,15 +232,15 @@ export async function GET(request: Request) {
     const row = summary.addRow([name, 0, 0, 0]);
     const item = aggregate("system", name);
     row.getCell(2).value = {
-      formula: `SUMIF(Componenti!$C$2:$C$${lastDataRow},$A${row.number},Componenti!$H$2:$H$${lastDataRow})`,
+      formula: `SUMIF(Components!$C$2:$C$${lastDataRow},$A${row.number},Components!$H$2:$H$${lastDataRow})`,
       result: item.cost,
     };
     row.getCell(3).value = {
-      formula: `SUMIF(Componenti!$C$2:$C$${lastDataRow},$A${row.number},Componenti!$J$2:$J$${lastDataRow})`,
+      formula: `SUMIF(Components!$C$2:$C$${lastDataRow},$A${row.number},Components!$J$2:$J$${lastDataRow})`,
       result: item.co2,
     };
     row.getCell(4).value = {
-      formula: `COUNTIF(Componenti!$C$2:$C$${lastDataRow},$A${row.number})`,
+      formula: `COUNTIF(Components!$C$2:$C$${lastDataRow},$A${row.number})`,
       result: item.count,
     };
     row.getCell(2).numFmt = MONEY;
@@ -252,7 +257,7 @@ export async function GET(request: Request) {
   );
 
   summary.addRow([
-    "Totale sistemi",
+    "Systems total",
     totalRowCell("B", systemStart, systemEnd, grandTotals.cost),
     totalRowCell("C", systemStart, systemEnd, grandTotals.co2),
     totalRowCell("D", systemStart, systemEnd, grandTotals.count),
@@ -260,7 +265,7 @@ export async function GET(request: Request) {
 
   summary.addRow([]);
 
-  const teamHeader = summary.addRow(["Team", "Costo totale", "CO₂e totale (kg)", "Componenti"]);
+  const teamHeader = summary.addRow(["Team", "Total cost", "Total CO₂e (kg)", "Components"]);
   teamHeader.font = { bold: true, color: { argb: "FFFFFFFF" } };
   teamHeader.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF111114" } };
 
@@ -281,15 +286,15 @@ export async function GET(request: Request) {
     const row = summary.addRow([name, 0, 0, 0]);
     const item = aggregate("team", name);
     row.getCell(2).value = {
-      formula: `SUMIF(Componenti!$D$2:$D$${lastDataRow},$A${row.number},Componenti!$H$2:$H$${lastDataRow})`,
+      formula: `SUMIF(Components!$D$2:$D$${lastDataRow},$A${row.number},Components!$H$2:$H$${lastDataRow})`,
       result: item.cost,
     };
     row.getCell(3).value = {
-      formula: `SUMIF(Componenti!$D$2:$D$${lastDataRow},$A${row.number},Componenti!$J$2:$J$${lastDataRow})`,
+      formula: `SUMIF(Components!$D$2:$D$${lastDataRow},$A${row.number},Components!$J$2:$J$${lastDataRow})`,
       result: item.co2,
     };
     row.getCell(4).value = {
-      formula: `COUNTIF(Componenti!$D$2:$D$${lastDataRow},$A${row.number})`,
+      formula: `COUNTIF(Components!$D$2:$D$${lastDataRow},$A${row.number})`,
       result: item.count,
     };
     row.getCell(2).numFmt = MONEY;
@@ -298,7 +303,7 @@ export async function GET(request: Request) {
 
   const teamEnd = summary.rowCount;
   summary.addRow([
-    "Totale team",
+    "Teams total",
     totalRowCell("B", teamStart, teamEnd, grandTotals.cost),
     totalRowCell("C", teamStart, teamEnd, grandTotals.co2),
     totalRowCell("D", teamStart, teamEnd, grandTotals.count),
