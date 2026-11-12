@@ -365,12 +365,15 @@ export async function GET(request: Request) {
     { ...emptyTotals },
   );
 
-  summary.addRow([
+  const systemsTotalRow = summary.addRow([
     L.systemsTotal,
     totalRowCell("B", systemStart, systemEnd, grandTotals.cost),
     totalRowCell("C", systemStart, systemEnd, grandTotals.co2),
     totalRowCell("D", systemStart, systemEnd, grandTotals.count),
-  ]).font = { bold: true };
+  ]);
+  systemsTotalRow.font = { bold: true };
+  systemsTotalRow.getCell(2).numFmt = L.money;
+  systemsTotalRow.getCell(3).numFmt = KG;
 
   summary.addRow([]);
 
@@ -411,12 +414,15 @@ export async function GET(request: Request) {
   });
 
   const teamEnd = summary.rowCount;
-  summary.addRow([
+  const teamsTotalRow = summary.addRow([
     L.teamsTotal,
     totalRowCell("B", teamStart, teamEnd, grandTotals.cost),
     totalRowCell("C", teamStart, teamEnd, grandTotals.co2),
     totalRowCell("D", teamStart, teamEnd, grandTotals.count),
-  ]).font = { bold: true };
+  ]);
+  teamsTotalRow.font = { bold: true };
+  teamsTotalRow.getCell(2).numFmt = L.money;
+  teamsTotalRow.getCell(3).numFmt = KG;
 
   const buffer = await workbook.xlsx.writeBuffer();
   const filename = `poliba-cost-emissions-${new Date().toISOString().slice(0, 10)}-${lang}.xlsx`;
