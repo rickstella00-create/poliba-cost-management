@@ -25,6 +25,7 @@ import type {
 } from "@/lib/types";
 import { AppHeader } from "./app-header";
 import { AssemblyDialog, AuthDialog, ComponentDialog } from "./dialogs";
+import periodStyles from "./period-filter.module.css";
 
 type Filters = {
   q: string;
@@ -32,9 +33,19 @@ type Filters = {
   team: string;
   assembly: string;
   status: string;
+  from: string;
+  to: string;
 };
 
-const emptyFilters: Filters = { q: "", system: "", team: "", assembly: "", status: "" };
+const emptyFilters: Filters = {
+  q: "",
+  system: "",
+  team: "",
+  assembly: "",
+  status: "",
+  from: "",
+  to: "",
+};
 
 export function RegistryView() {
   const { t, lang, eur, kg, num, pct, date, statusLabel } = useI18n();
@@ -115,6 +126,10 @@ export function RegistryView() {
       if (filters.team && assembly.team_id !== filters.team) return false;
       if (filters.assembly && assembly.id !== filters.assembly) return false;
       if (filters.status && component.status !== filters.status) return false;
+      // Entry date (UTC, same convention as the Excel export).
+      const entered = component.created_at.slice(0, 10);
+      if (filters.from && entered < filters.from) return false;
+      if (filters.to && entered > filters.to) return false;
       if (!needle) return true;
       const haystack = [
         component.description,
@@ -140,6 +155,8 @@ export function RegistryView() {
     if (filters.team) params.set("team", filters.team);
     if (filters.status) params.set("status", filters.status);
     if (filters.q) params.set("q", filters.q);
+    if (filters.from) params.set("from", filters.from);
+    if (filters.to) params.set("to", filters.to);
     params.set("lang", lang);
     return `/api/export?${params.toString()}`;
   }, [filters, lang]);
@@ -483,6 +500,38 @@ export function RegistryView() {
 
           <div className="toolbar">
             <div className="filters">
+              <div className={periodStyles.group}>
+                <span className={periodStyles.label}>{t("filter.period")}</span>
+                <input
+                  className={`${periodStyles.date} input`}
+                  type="date"
+                  value={filters.from}
+                  max={filters.to || undefined}
+                  onChange={(event) =>
+                    setFilters((current) => ({ ...current, from: event.target.value }))
+                  }
+                  aria-label={t("field.dateFrom")}
+                  title={t("field.dateFrom")}
+                />
+                <input
+                  className={`${periodStyles.date} input`}
+                  type="date"
+                  value={filters.to}
+                  min={filters.from || undefined}
+                  onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))}
+                  aria-label={t("field.dateTo")}
+                  title={t("field.dateTo")}
+                />
+                {filters.from || filters.to ? (
+                  <button
+                    type="button"
+                    className="btn btn--quiet btn--sm"
+                    onClick={() => setFilters((current) => ({ ...current, from: "", to: "" }))}
+                  >
+                    {t("filter.clearPeriod")}
+                  </button>
+                ) : null}
+              </div>
               <input
                 className="input input--search"
                 placeholder={t("search.placeholder")}
@@ -566,6 +615,7 @@ export function RegistryView() {
                     <th className="num">{t("col.totalCost")}</th>
                     <th className="num">{t("col.unitCo2")}</th>
                     <th className="num">{t("col.totalCo2")}</th>
+                    <th className="num">{t("col.entered")}</th>
                     <th>{t("col.status")}</th>
                   </tr>
                 </thead>
@@ -596,6 +646,7 @@ export function RegistryView() {
                         <td className="num">{eur(Number(component.quantity) * Number(component.unit_cost), true)}</td>
                         <td className="num">{num(component.co2e_unit)}</td>
                         <td className="num">{num(Number(component.quantity) * Number(component.co2e_unit))}</td>
+                        <td className="num">{date(component.created_at)}</td>
                         <td>
                           <button
                             type="button"
@@ -628,6 +679,7 @@ export function RegistryView() {
                       <td className="num">{eur(filteredTotals.cost, true)}</td>
                       <td className="num" />
                       <td className="num">{num(filteredTotals.co2)}</td>
+                      <td />
                       <td />
                     </tr>
                   </tfoot>
