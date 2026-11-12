@@ -60,7 +60,7 @@ export function Modal({
             <p className="eyebrow">{eyebrow}</p>
             <h2 className="modal__title">{title}</h2>
           </div>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Chiudi">
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
             ✕
           </button>
         </div>
@@ -122,7 +122,7 @@ export function AuthDialog({
       if (signInError) {
         setError(
           signInError.message === "Invalid login credentials"
-            ? "Email o password non corretti. Se è il primo accesso, registrati."
+            ? "Wrong email or password. If this is your first visit, sign up."
             : signInError.message,
         );
         setBusy(false);
@@ -145,7 +145,7 @@ export function AuthDialog({
     }
 
     if (!data.session) {
-      setNotice("Account creato. Controlla la posta: ti abbiamo inviato il link di conferma.");
+      setNotice("Account created. Check your inbox for the confirmation link.");
       setBusy(false);
       return;
     }
@@ -156,8 +156,8 @@ export function AuthDialog({
 
   return (
     <Modal
-      eyebrow="Accesso"
-      title={mode === "login" ? "Entra nel registro" : "Crea il tuo account"}
+      eyebrow="Access"
+      title={mode === "login" ? "Sign in to the registry" : "Create your account"}
       onClose={onClose}
       footer={
         <>
@@ -170,11 +170,11 @@ export function AuthDialog({
               setNotice(null);
             }}
           >
-            {mode === "login" ? "Non hai un account? Registrati" : "Hai già un account? Accedi"}
+            {mode === "login" ? "No account? Sign up" : "Already have an account? Sign in"}
           </button>
           <div className="modal__actions">
             <button type="submit" form="auth-form" className="btn btn--primary" disabled={busy}>
-              {busy ? "Attendi…" : mode === "login" ? "Accedi" : "Registrati"}
+              {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Sign up"}
             </button>
           </div>
         </>
@@ -191,10 +191,10 @@ export function AuthDialog({
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="nome@poliba.it"
+            placeholder="name@poliba.it"
           />
         </Field>
-        <Field label="Password" hint="Almeno 6 caratteri." full>
+        <Field label="Password" hint="At least 6 characters." full>
           <input
             className="input"
             type="password"
@@ -206,9 +206,9 @@ export function AuthDialog({
           />
         </Field>
         {mode === "signup" && teams && teams.length > 0 ? (
-          <Field label="Il tuo team" hint="Serve solo a personalizzare la vista, non limita cosa puoi modificare." full>
+          <Field label="Your team" hint="Only used to personalise the view: it does not limit what you can edit." full>
             <select className="select" value={teamId} onChange={(event) => setTeamId(event.target.value)}>
-              <option value="">— scegli —</option>
+              <option value="">— choose —</option>
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>
                   {team.name}
@@ -225,7 +225,7 @@ export function AuthDialog({
   );
 }
 
-/* -------------------------------------------------------------- componente */
+/* --------------------------------------------------------------- component */
 
 const emptyComponent = (assemblyId: string): ComponentDraft => ({
   assembly_id: assemblyId,
@@ -296,7 +296,7 @@ export function ComponentDialog({
 
   async function remove() {
     if (!component || !onDelete) return;
-    if (!window.confirm(`Eliminare "${component.description}"? L'operazione non si può annullare.`)) return;
+    if (!window.confirm(`Delete "${component.description}"? This cannot be undone.`)) return;
     setBusy(true);
     const message = await onDelete(component.id);
     setBusy(false);
@@ -306,39 +306,39 @@ export function ComponentDialog({
 
   return (
     <Modal
-      eyebrow={component ? "Modifica componente" : "Nuovo componente"}
-      title={component ? component.description : "Aggiungi un componente"}
+      eyebrow={component ? "Edit component" : "New component"}
+      title={component ? component.description : "Add a component"}
       onClose={onClose}
       wide
       footer={
         <>
           {component && onDelete ? (
             <button type="button" className="btn btn--danger btn--sm" onClick={remove} disabled={busy}>
-              Elimina
+              Delete
             </button>
           ) : (
             <span />
           )}
           <div className="modal__actions">
             <button type="button" className="btn btn--ghost" onClick={onClose} disabled={busy}>
-              Annulla
+              Cancel
             </button>
             <button type="submit" form="component-form" className="btn btn--primary" disabled={busy}>
-              {busy ? "Salvo…" : "Salva"}
+              {busy ? "Saving…" : "Save"}
             </button>
           </div>
         </>
       }
     >
       <form id="component-form" onSubmit={submit} className="form-grid">
-        <Field label="Assieme" full>
+        <Field label="Assembly" full>
           <select
             className="select"
             required
             value={draft.assembly_id}
             onChange={(event) => set("assembly_id", event.target.value)}
           >
-            <option value="">— scegli un assieme —</option>
+            <option value="">— choose an assembly —</option>
             {assemblies.map((assembly) => (
               <option key={assembly.id} value={assembly.id}>
                 {assembly.name}
@@ -347,7 +347,7 @@ export function ComponentDialog({
           </select>
         </Field>
 
-        <Field label="Codice parte">
+        <Field label="Part code">
           <input
             className="input"
             value={draft.code}
@@ -356,17 +356,17 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="Descrizione" full>
+        <Field label="Description" full>
           <input
             className="input"
             required
             value={draft.description}
             onChange={(event) => set("description", event.target.value)}
-            placeholder="Braccio oscillante superiore"
+            placeholder="Upper wishbone"
           />
         </Field>
 
-        <Field label="Quantità">
+        <Field label="Quantity">
           <input
             className="input"
             inputMode="decimal"
@@ -375,7 +375,7 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="Costo unitario (€)">
+        <Field label="Unit cost (€)">
           <input
             className="input"
             inputMode="decimal"
@@ -384,7 +384,7 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="Materiale">
+        <Field label="Material">
           <input
             className="input"
             value={draft.material}
@@ -393,7 +393,7 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="Massa unitaria (kg)">
+        <Field label="Unit mass (kg)">
           <input
             className="input"
             inputMode="decimal"
@@ -402,12 +402,12 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="Processo">
+        <Field label="Process">
           <input
             className="input"
             value={draft.process}
             onChange={(event) => set("process", event.target.value)}
-            placeholder="Taglio laser + saldatura TIG"
+            placeholder="Laser cutting + TIG welding"
           />
         </Field>
 
@@ -418,12 +418,12 @@ export function ComponentDialog({
             onChange={(event) => set("sourcing", event.target.value as ComponentDraft["sourcing"])}
           >
             <option value="">—</option>
-            <option value="make">Make (in casa)</option>
-            <option value="buy">Buy (comprato)</option>
+            <option value="make">Make (in-house)</option>
+            <option value="buy">Buy (purchased)</option>
           </select>
         </Field>
 
-        <Field label="Fornitore">
+        <Field label="Supplier">
           <input
             className="input"
             value={draft.supplier}
@@ -431,7 +431,7 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="CO₂e unitario (kg)" hint="Valore per singolo pezzo: il totale lo calcola il registro.">
+        <Field label="CO₂e per unit (kg)" hint="Value for a single part: the registry calculates the total.">
           <input
             className="input"
             inputMode="decimal"
@@ -440,28 +440,28 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="Fonte CO₂e" hint="Datasheet, LCA del fornitore, norma di riferimento.">
+        <Field label="CO₂e source" hint="Datasheet, supplier LCA, reference standard.">
           <input
             className="input"
             value={draft.co2e_source}
             onChange={(event) => set("co2e_source", event.target.value)}
-            placeholder="EPD fornitore 2025"
+            placeholder="Supplier EPD 2025"
           />
         </Field>
 
-        <Field label="Note" full>
+        <Field label="Notes" full>
           <textarea
             className="input"
             value={draft.notes}
             onChange={(event) => set("notes", event.target.value)}
-            placeholder="Vincoli, alternative valutate, riferimenti."
+            placeholder="Constraints, alternatives considered, references."
           />
         </Field>
       </form>
 
       {component?.updated_by_email ? (
         <p className="form-note">
-          Ultima modifica di {component.updated_by_email}. Modificare un dato verificato lo riporta in bozza.
+          Last edited by {component.updated_by_email}. Editing a verified row puts it back to draft.
         </p>
       ) : null}
 
@@ -470,7 +470,7 @@ export function ComponentDialog({
   );
 }
 
-/* --------------------------------------------------------------- assieme */
+/* ---------------------------------------------------------------- assembly */
 
 export function AssemblyDialog({
   assembly,
@@ -518,7 +518,7 @@ export function AssemblyDialog({
     if (!assembly || !onDelete) return;
     if (
       !window.confirm(
-        `Eliminare l'assieme "${assembly.name}" e tutti i suoi componenti? L'operazione non si può annullare.`,
+        `Delete the assembly "${assembly.name}" and all its components? This cannot be undone.`,
       )
     )
       return;
@@ -531,47 +531,47 @@ export function AssemblyDialog({
 
   return (
     <Modal
-      eyebrow={assembly ? "Modifica assieme" : "Nuovo assieme"}
-      title={assembly ? assembly.name : "Aggiungi un assieme"}
+      eyebrow={assembly ? "Edit assembly" : "New assembly"}
+      title={assembly ? assembly.name : "Add an assembly"}
       onClose={onClose}
       footer={
         <>
           {assembly && onDelete ? (
             <button type="button" className="btn btn--danger btn--sm" onClick={remove} disabled={busy}>
-              Elimina
+              Delete
             </button>
           ) : (
             <span />
           )}
           <div className="modal__actions">
             <button type="button" className="btn btn--ghost" onClick={onClose} disabled={busy}>
-              Annulla
+              Cancel
             </button>
             <button type="submit" form="assembly-form" className="btn btn--primary" disabled={busy}>
-              {busy ? "Salvo…" : "Salva"}
+              {busy ? "Saving…" : "Save"}
             </button>
           </div>
         </>
       }
     >
       <form id="assembly-form" onSubmit={submit} className="form-grid">
-        <Field label="Nome assieme" full>
+        <Field label="Assembly name" full>
           <input
             className="input"
             required
             value={draft.name}
             onChange={(event) => set("name", event.target.value)}
-            placeholder="Sospensioni anteriori"
+            placeholder="Front suspension"
           />
         </Field>
-        <Field label="Sistema">
+        <Field label="System">
           <select
             className="select"
             required
             value={draft.system_id}
             onChange={(event) => set("system_id", event.target.value)}
           >
-            <option value="">— scegli —</option>
+            <option value="">— choose —</option>
             {systems.map((system) => (
               <option key={system.id} value={system.id}>
                 {system.name}
@@ -586,7 +586,7 @@ export function AssemblyDialog({
             value={draft.team_id}
             onChange={(event) => set("team_id", event.target.value)}
           >
-            <option value="">— scegli —</option>
+            <option value="">— choose —</option>
             {teams.map((team) => (
               <option key={team.id} value={team.id}>
                 {team.name}
@@ -594,7 +594,7 @@ export function AssemblyDialog({
             ))}
           </select>
         </Field>
-        <Field label="Note" full>
+        <Field label="Notes" full>
           <textarea
             className="input"
             value={draft.notes}
