@@ -10,7 +10,7 @@ import type { Registry } from "@/lib/types";
 import { AppHeader } from "@/components/app-header";
 
 export default function HomePage() {
-  const { t, eur, kg, num } = useI18n();
+  const { t, lang, eur, kg, num } = useI18n();
   const [registry, setRegistry] = useState<Registry>(emptyRegistry);
   const [loading, setLoading] = useState(true);
 
@@ -41,7 +41,7 @@ export default function HomePage() {
             <Link className="btn btn--primary" href="/registry">
               {t("home.open")}
             </Link>
-            <a className="btn" href="/api/export">
+            <a className="btn" href={`/api/export?lang=${lang}`}>
               {t("home.download")}
             </a>
           </div>

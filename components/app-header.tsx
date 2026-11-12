@@ -31,7 +31,7 @@ function LanguageSwitch() {
 }
 
 export function AppHeader() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [session, setSession] = useState<Session | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
 
@@ -61,7 +61,7 @@ export function AppHeader() {
             <Link className="nav__link" href="/registry#assemblies">
               {t("nav.assemblies")}
             </Link>
-            <a className="nav__link" href="/api/export">
+            <a className="nav__link" href={`/api/export?lang=${lang}`}>
               {t("nav.excel")}
             </a>
           </nav>
