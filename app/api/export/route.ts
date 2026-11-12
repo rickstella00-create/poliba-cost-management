@@ -32,16 +32,102 @@ type ComponentExport = {
   updated_at: string;
 };
 
-const MONEY = '"€"#,##0.00';
+type Copy = {
+  sheetComponents: string;
+  sheetSummary: string;
+  headers: string[];
+  exportedOn: (date: string) => string;
+  systemHeader: string[];
+  teamsHeader: string[];
+  systemsTotal: string;
+  teamsTotal: string;
+  money: string;
+  statusDraft: string;
+  statusVerified: string;
+  exported: string;
+  unavailable: string;
+};
+
+const COPY: Record<"en" | "it", Copy> = {
+  en: {
+    sheetComponents: "Components",
+    sheetSummary: "Summary",
+    headers: [
+      "Code",
+      "Description",
+      "System",
+      "Team",
+      "Assembly",
+      "Qty",
+      "Unit cost",
+      "Total cost",
+      "CO₂e per unit (kg)",
+      "Total CO₂e (kg)",
+      "Material",
+      "Unit mass (kg)",
+      "Process",
+      "Make/Buy",
+      "Supplier",
+      "CO₂e source",
+      "Status",
+      "Notes",
+      "Last update",
+    ],
+    exportedOn: (date) => `Exported on ${date}`,
+    systemHeader: ["System", "Total cost", "Total CO₂e (kg)", "Components"],
+    teamsHeader: ["Team", "Total cost", "Total CO₂e (kg)", "Components"],
+    systemsTotal: "Systems total",
+    teamsTotal: "Teams total",
+    money: '"€"#,##0.00',
+    statusDraft: "Draft",
+    statusVerified: "Verified",
+    exported: "Exported at",
+    unavailable: "Export unavailable",
+  },
+  it: {
+    sheetComponents: "Componenti",
+    sheetSummary: "Riepilogo",
+    headers: [
+      "Codice",
+      "Descrizione",
+      "Sistema",
+      "Team",
+      "Assieme",
+      "Q.tà",
+      "Costo unitario",
+      "Costo totale",
+      "CO₂e unitario (kg)",
+      "CO₂e totale (kg)",
+      "Materiale",
+      "Massa unitaria (kg)",
+      "Processo",
+      "Make/Buy",
+      "Fornitore",
+      "Fonte CO₂e",
+      "Stato",
+      "Note",
+      "Ultima modifica",
+    ],
+    exportedOn: (date) => `Esportato il ${date}`,
+    systemHeader: ["Sistema", "Costo totale", "CO₂e totale (kg)", "Componenti"],
+    teamsHeader: ["Team", "Costo totale", "CO₂e totale (kg)", "Componenti"],
+    systemsTotal: "Totale sistemi",
+    teamsTotal: "Totale team",
+    money: '#,##0.00" €"',
+    statusDraft: "Bozza",
+    statusVerified: "Verificato",
+    exported: "Esportato alle",
+    unavailable: "Export non disponibile",
+  },
+};
+
 const KG = "#,##0.00";
 const DATE = "dd mmm yyyy";
 
-function statusLabel(status: string): string {
-  return status === "verificato" ? "Verified" : "Draft";
-}
-
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
+  const lang = params.get("lang") === "it" ? "it" : "en";
+  const L = COPY[lang];
   const systemFilter = params.get("system") ?? "";
   const teamFilter = params.get("team") ?? "";
   const statusFilter = params.get("status") ?? "";
@@ -56,7 +142,7 @@ export async function GET(request: Request) {
 
   if (assembliesResult.error || componentsResult.error) {
     return new Response(
-      `Export unavailable: ${assembliesResult.error?.message ?? componentsResult.error?.message}`,
+      `${L.unavailable}: ${assembliesResult.error?.message ?? componentsResult.error?.message}`,
       { status: 500 },
     );
   }
@@ -92,33 +178,13 @@ export async function GET(request: Request) {
   workbook.created = new Date();
 
   /* ------------------------------------------------------ sheet 1: the BOM */
-  const sheet = workbook.addWorksheet("Components", {
+  const sheet = workbook.addWorksheet(L.sheetComponents, {
     views: [{ state: "frozen", ySplit: 1 }],
   });
 
-  sheet.columns = [
-    { header: "Code", key: "code", width: 14 },
-    { header: "Description", key: "description", width: 40 },
-    { header: "System", key: "system", width: 22 },
-    { header: "Team", key: "team", width: 22 },
-    { header: "Assembly", key: "assembly", width: 26 },
-    { header: "Qty", key: "quantity", width: 8 },
-    { header: "Unit cost", key: "unitCost", width: 15 },
-    { header: "Total cost", key: "costTotal", width: 15 },
-    { header: "CO₂e per unit (kg)", key: "co2Unit", width: 18 },
-    { header: "Total CO₂e (kg)", key: "co2Total", width: 18 },
-    { header: "Material", key: "material", width: 20 },
-    { header: "Unit mass (kg)", key: "mass", width: 17 },
-    { header: "Process", key: "process", width: 26 },
-    { header: "Make/Buy", key: "sourcing", width: 11 },
-    { header: "Supplier", key: "supplier", width: 22 },
-    { header: "CO₂e source", key: "co2Source", width: 22 },
-    { header: "Status", key: "status", width: 12 },
-    { header: "Notes", key: "notes", width: 34 },
-    { header: "Last update", key: "updatedAt", width: 18 },
-  ];
+  const widths = [14, 40, 22, 22, 26, 8, 15, 15, 18, 18, 20, 17, 26, 11, 22, 22, 12, 34, 18];
+  sheet.columns = L.headers.map((header, index) => ({ header, width: widths[index] }));
 
-  sheet.getRow(1).font = { bold: true };
   sheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF111114" } };
   sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
 
@@ -128,34 +194,34 @@ export async function GET(request: Request) {
     const unitCost = Number(component.unit_cost ?? 0);
     const co2Unit = Number(component.co2e_unit ?? 0);
 
-    const row = sheet.addRow({
-      code: component.code ?? "",
-      description: component.description,
-      system: assembly?.systems?.name ?? "",
-      team: assembly?.teams?.name ?? "",
-      assembly: assembly?.name ?? "",
+    const row = sheet.addRow([
+      component.code ?? "",
+      component.description,
+      assembly?.systems?.name ?? "",
+      assembly?.teams?.name ?? "",
+      assembly?.name ?? "",
       quantity,
       unitCost,
-      costTotal: quantity * unitCost,
+      null,
       co2Unit,
-      co2Total: quantity * co2Unit,
-      material: component.material ?? "",
-      mass: component.mass_kg === null ? "" : Number(component.mass_kg),
-      process: component.process ?? "",
-      sourcing: component.sourcing === "make" ? "Make" : component.sourcing === "buy" ? "Buy" : "",
-      supplier: component.supplier ?? "",
-      co2Source: component.co2e_source ?? "",
-      status: statusLabel(component.status),
-      notes: component.notes ?? "",
-      updatedAt: component.updated_at ? new Date(component.updated_at) : "",
-    });
+      null,
+      component.material ?? "",
+      component.mass_kg === null ? "" : Number(component.mass_kg),
+      component.process ?? "",
+      component.sourcing === "make" ? "Make" : component.sourcing === "buy" ? "Buy" : "",
+      component.supplier ?? "",
+      component.co2e_source ?? "",
+      component.status === "verificato" ? L.statusVerified : L.statusDraft,
+      component.notes ?? "",
+      component.updated_at ? new Date(component.updated_at) : "",
+    ]);
 
     // Live formulas: change a price in Excel and the totals follow.
     row.getCell(8).value = { formula: `F${row.number}*G${row.number}`, result: quantity * unitCost };
     row.getCell(10).value = { formula: `F${row.number}*I${row.number}`, result: quantity * co2Unit };
 
-    row.getCell(7).numFmt = MONEY;
-    row.getCell(8).numFmt = MONEY;
+    row.getCell(7).numFmt = L.money;
+    row.getCell(8).numFmt = L.money;
     row.getCell(9).numFmt = KG;
     row.getCell(10).numFmt = KG;
     row.getCell(12).numFmt = KG;
@@ -163,9 +229,10 @@ export async function GET(request: Request) {
   });
 
   const lastDataRow = Math.max(2, rows.length + 1);
+  const bom = L.sheetComponents;
 
   /* ----------------------------------------------------- sheet 2: summary */
-  const summary = workbook.addWorksheet("Summary");
+  const summary = workbook.addWorksheet(L.sheetSummary);
   summary.columns = [
     { key: "label", width: 30 },
     { key: "cost", width: 18 },
@@ -175,12 +242,18 @@ export async function GET(request: Request) {
 
   summary.addRow(["Poliba Corse · Cost & Emissions"]).font = { bold: true, size: 14 };
   summary.addRow([
-    `Exported on ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}`,
+    L.exportedOn(
+      new Date().toLocaleDateString(lang === "it" ? "it-IT" : "en-GB", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      }),
+    ),
   ]);
   summary.addRow([]);
 
   let cursor = 4;
-  const systemHeader = summary.addRow(["System", "Total cost", "Total CO₂e (kg)", "Components"]);
+  const systemHeader = summary.addRow(L.systemHeader);
   systemHeader.font = { bold: true, color: { argb: "FFFFFFFF" } };
   systemHeader.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF111114" } };
   cursor += 1;
@@ -234,18 +307,18 @@ export async function GET(request: Request) {
     const row = summary.addRow([name, 0, 0, 0]);
     const item = aggregate("system", name);
     row.getCell(2).value = {
-      formula: `SUMIF(Components!$C$2:$C$${lastDataRow},$A${row.number},Components!$H$2:$H$${lastDataRow})`,
+      formula: `SUMIF(${bom}!$C$2:$C$${lastDataRow},$A${row.number},${bom}!$H$2:$H$${lastDataRow})`,
       result: item.cost,
     };
     row.getCell(3).value = {
-      formula: `SUMIF(Components!$C$2:$C$${lastDataRow},$A${row.number},Components!$J$2:$J$${lastDataRow})`,
+      formula: `SUMIF(${bom}!$C$2:$C$${lastDataRow},$A${row.number},${bom}!$J$2:$J$${lastDataRow})`,
       result: item.co2,
     };
     row.getCell(4).value = {
-      formula: `COUNTIF(Components!$C$2:$C$${lastDataRow},$A${row.number})`,
+      formula: `COUNTIF(${bom}!$C$2:$C$${lastDataRow},$A${row.number})`,
       result: item.count,
     };
-    row.getCell(2).numFmt = MONEY;
+    row.getCell(2).numFmt = L.money;
     row.getCell(3).numFmt = KG;
   });
 
@@ -259,7 +332,7 @@ export async function GET(request: Request) {
   );
 
   summary.addRow([
-    "Systems total",
+    L.systemsTotal,
     totalRowCell("B", systemStart, systemEnd, grandTotals.cost),
     totalRowCell("C", systemStart, systemEnd, grandTotals.co2),
     totalRowCell("D", systemStart, systemEnd, grandTotals.count),
@@ -267,7 +340,7 @@ export async function GET(request: Request) {
 
   summary.addRow([]);
 
-  const teamHeader = summary.addRow(["Team", "Total cost", "Total CO₂e (kg)", "Components"]);
+  const teamHeader = summary.addRow(L.teamsHeader);
   teamHeader.font = { bold: true, color: { argb: "FFFFFFFF" } };
   teamHeader.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF111114" } };
 
@@ -288,31 +361,31 @@ export async function GET(request: Request) {
     const row = summary.addRow([name, 0, 0, 0]);
     const item = aggregate("team", name);
     row.getCell(2).value = {
-      formula: `SUMIF(Components!$D$2:$D$${lastDataRow},$A${row.number},Components!$H$2:$H$${lastDataRow})`,
+      formula: `SUMIF(${bom}!$D$2:$D$${lastDataRow},$A${row.number},${bom}!$H$2:$H$${lastDataRow})`,
       result: item.cost,
     };
     row.getCell(3).value = {
-      formula: `SUMIF(Components!$D$2:$D$${lastDataRow},$A${row.number},Components!$J$2:$J$${lastDataRow})`,
+      formula: `SUMIF(${bom}!$D$2:$D$${lastDataRow},$A${row.number},${bom}!$J$2:$J$${lastDataRow})`,
       result: item.co2,
     };
     row.getCell(4).value = {
-      formula: `COUNTIF(Components!$D$2:$D$${lastDataRow},$A${row.number})`,
+      formula: `COUNTIF(${bom}!$D$2:$D$${lastDataRow},$A${row.number})`,
       result: item.count,
     };
-    row.getCell(2).numFmt = MONEY;
+    row.getCell(2).numFmt = L.money;
     row.getCell(3).numFmt = KG;
   });
 
   const teamEnd = summary.rowCount;
   summary.addRow([
-    "Teams total",
+    L.teamsTotal,
     totalRowCell("B", teamStart, teamEnd, grandTotals.cost),
     totalRowCell("C", teamStart, teamEnd, grandTotals.co2),
     totalRowCell("D", teamStart, teamEnd, grandTotals.count),
   ]).font = { bold: true };
 
   const buffer = await workbook.xlsx.writeBuffer();
-  const filename = `poliba-cost-emissions-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const filename = `poliba-cost-emissions-${new Date().toISOString().slice(0, 10)}-${lang}.xlsx`;
 
   return new Response(new Uint8Array(buffer as ArrayBuffer), {
     headers: {
