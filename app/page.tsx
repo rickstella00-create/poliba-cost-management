@@ -37,8 +37,8 @@ export default function HomePage() {
           <h1 className="display">Registro costi ed emissioni</h1>
           <p className="lede">
             Un unico posto dove ogni team inserisce i componenti della monoposto con costo ed emissioni.
-            I dati sono leggibili da chiunque abbia il link, si modificano dopo l&apos;accesso e si esportano
-            in Excel.
+            Sito interno: chi ha il link inserisce e modifica i dati direttamente, e li esporta in Excel
+            quando serve.
           </p>
           <div className="hero__actions">
             <Link className="btn btn--primary" href="/registro">
@@ -90,9 +90,7 @@ export default function HomePage() {
           <div className="section__head">
             <div>
               <h2 className="section__title">Sistemi</h2>
-              <p className="section__note">
-                Ogni assieme appartiene a uno di questi sistemi.
-              </p>
+              <p className="section__note">Ogni assieme appartiene a uno di questi sistemi.</p>
             </div>
           </div>
 
@@ -108,7 +106,7 @@ export default function HomePage() {
 
         <footer className="footer">
           <span>Registro costi ed emissioni</span>
-          <span>Dati consultabili pubblicamente, modifica previa accesso</span>
+          <span>Uso interno al team</span>
         </footer>
       </main>
     </>
