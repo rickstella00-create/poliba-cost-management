@@ -6,7 +6,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { AUTH_ENABLED } from "@/lib/config";
 import { loadRegistry, emptyRegistry } from "@/lib/queries";
-import { dateIt, eur, kg, num, pct, toNumber } from "@/lib/format";
+import { dateShort, eur, kg, num, pct, statusLabel, toNumber } from "@/lib/format";
 import {
   assemblyTotals,
   bySystem,
@@ -37,10 +37,10 @@ const emptyFilters: Filters = { q: "", system: "", team: "", assembly: "", statu
 
 function friendly(message: string): string {
   if (/row-level security|violates row-level/i.test(message)) {
-    return "Permesso negato: accedi per modificare i dati.";
+    return "Permission denied: sign in to edit the data.";
   }
   if (/duplicate key|unique constraint/i.test(message)) {
-    return "Esiste già un assieme con questo nome nello stesso sistema.";
+    return "An assembly with this name already exists in that system.";
   }
   return message;
 }
@@ -70,9 +70,7 @@ export function RegistryView() {
       setRegistry(next);
       setLoading(false);
       if (next.systems.length === 0) {
-        setLoadError(
-          "Il database è vuoto: esegui una volta supabase/schema.sql nell'SQL Editor di Supabase.",
-        );
+        setLoadError("The database is empty: run supabase/schema.sql once in the Supabase SQL editor.");
       }
     });
     return () => {
@@ -156,8 +154,8 @@ export function RegistryView() {
   }, [filters]);
 
   async function saveComponent(draft: ComponentDraft): Promise<string | null> {
-    if (!requireSession("Accedi per inserire e modificare i componenti del registro.")) {
-      return "Accedi per salvare.";
+    if (!requireSession("Sign in to add and edit registry components.")) {
+      return "Sign in to save.";
     }
     const payload = {
       assembly_id: draft.assembly_id,
@@ -176,8 +174,8 @@ export function RegistryView() {
       updated_by_email: session?.user.email ?? null,
     };
 
-    if (!payload.description) return "La descrizione è obbligatoria.";
-    if (!payload.assembly_id) return "Scegli l'assieme a cui appartiene il componente.";
+    if (!payload.description) return "The description is required.";
+    if (!payload.assembly_id) return "Choose the assembly this component belongs to.";
 
     const { error } = draft.id
       ? await supabase.from("components").update(payload).eq("id", draft.id)
@@ -187,21 +185,21 @@ export function RegistryView() {
 
     if (error) return friendly(error.message);
     await refresh();
-    setFlash(draft.id ? "Componente aggiornato." : "Componente aggiunto.");
+    setFlash(draft.id ? "Component updated." : "Component added.");
     return null;
   }
 
   async function deleteComponent(id: string): Promise<string | null> {
-    if (!requireSession("Accedi per eliminare un componente.")) return "Accedi per continuare.";
+    if (!requireSession("Sign in to delete a component.")) return "Sign in to continue.";
     const { error } = await supabase.from("components").delete().eq("id", id);
     if (error) return friendly(error.message);
     await refresh();
-    setFlash("Componente eliminato.");
+    setFlash("Component deleted.");
     return null;
   }
 
   async function toggleStatus(component: ComponentRow) {
-    if (!requireSession("Accedi per cambiare lo stato di verifica.")) return;
+    if (!requireSession("Sign in to change the verification status.")) return;
     const next = component.status === "verificato" ? "bozza" : "verificato";
     const { error } = await supabase
       .from("components")
@@ -212,11 +210,11 @@ export function RegistryView() {
       return;
     }
     await refresh();
-    setFlash(next === "verificato" ? "Componente verificato." : "Riportato in bozza.");
+    setFlash(next === "verificato" ? "Component verified." : "Back to draft.");
   }
 
   async function saveAssembly(draft: AssemblyRowDraft): Promise<string | null> {
-    if (!requireSession("Accedi per creare o modificare gli assiemi.")) return "Accedi per continuare.";
+    if (!requireSession("Sign in to create or edit assemblies.")) return "Sign in to continue.";
     const payload = {
       name: draft.name.trim(),
       system_id: draft.system_id,
@@ -224,9 +222,9 @@ export function RegistryView() {
       notes: draft.notes.trim() || null,
       updated_by_email: session?.user.email ?? null,
     };
-    if (!payload.name) return "Il nome dell'assieme è obbligatorio.";
-    if (!payload.system_id) return "Scegli il sistema.";
-    if (!payload.team_id) return "Scegli il team responsabile.";
+    if (!payload.name) return "The assembly name is required.";
+    if (!payload.system_id) return "Choose the system.";
+    if (!payload.team_id) return "Choose the responsible team.";
 
     const { error } = draft.id
       ? await supabase.from("assemblies").update(payload).eq("id", draft.id)
@@ -236,16 +234,16 @@ export function RegistryView() {
 
     if (error) return friendly(error.message);
     await refresh();
-    setFlash(draft.id ? "Assieme aggiornato." : "Assieme creato.");
+    setFlash(draft.id ? "Assembly updated." : "Assembly created.");
     return null;
   }
 
   async function deleteAssembly(id: string): Promise<string | null> {
-    if (!requireSession("Accedi per eliminare un assieme.")) return "Accedi per continuare.";
+    if (!requireSession("Sign in to delete an assembly.")) return "Sign in to continue.";
     const { error } = await supabase.from("assemblies").delete().eq("id", id);
     if (error) return friendly(error.message);
     await refresh();
-    setFlash("Assieme eliminato.");
+    setFlash("Assembly deleted.");
     return null;
   }
 
@@ -259,55 +257,56 @@ export function RegistryView() {
         {loadError ? <p className="notice" style={{ marginTop: 24 }}>{loadError}</p> : null}
         {!AUTH_ENABLED ? (
           <p className="form-note" style={{ marginTop: 24 }}>
-            Fase sperimentale: il sito è aperto, chiunque abbia il link può inserire e modificare i dati.
-            L&apos;accesso con email resta predisposto e verrà attivato più avanti.
+            Experimental phase: the site is open, anyone with the link can add and edit data. Email
+            sign-in is already wired up and will be switched on later.
           </p>
         ) : null}
         {flash ? <p className="form-ok" style={{ marginTop: 24 }}>{flash}</p> : null}
 
-        {/* ---------------------------------------------------- panoramica */}
-        <section className="section" id="panoramica">
+        {/* ------------------------------------------------------ overview */}
+        <section className="section" id="overview">
           <div className="section__head">
             <div>
               <p className="eyebrow">
-                <span className="eyebrow__num">01</span>Panoramica
+                <span className="eyebrow__num">01</span>Overview
               </p>
-              <h1 className="section__title">Il costo e il peso della monoposto</h1>
+              <h1 className="section__title">Cost and weight of the car</h1>
               <p className="section__note">
-                Totali calcolati dai componenti inseriti dai team. Modificare un dato verificato lo riporta
-                in bozza.
+                Totals come from the components entered by the teams. Editing a verified row puts it
+                back to draft.
               </p>
             </div>
             <a className="btn btn--ghost btn--sm" href={exportHref}>
-              Esporta Excel
+              Export Excel
             </a>
           </div>
 
           <div className="kpi-grid">
             <div className="kpi kpi--accent">
-              <p className="kpi__label">Costo totale</p>
+              <p className="kpi__label">Total cost</p>
               <p className="kpi__value">{loading ? "—" : eur(totals.cost)}</p>
               <p className="kpi__hint">
-                {num(totals.components)} {totals.components === 1 ? "componente" : "componenti"} a registro
+                {num(totals.components)} {totals.components === 1 ? "component" : "components"} in the
+                registry
               </p>
             </div>
             <div className="kpi">
-              <p className="kpi__label">CO₂e totale</p>
+              <p className="kpi__label">Total CO₂e</p>
               <p className="kpi__value">{loading ? "—" : kg(totals.co2)}</p>
-              <p className="kpi__hint">Somma dei valori inseriti dai team</p>
+              <p className="kpi__hint">Sum of the values entered by the teams</p>
             </div>
             <div className="kpi">
-              <p className="kpi__label">Verificati</p>
+              <p className="kpi__label">Verified</p>
               <p className="kpi__value">{loading ? "—" : pct(verifiedShare(totals))}</p>
               <p className="kpi__hint">
-                {num(totals.verified)} su {num(totals.components)} controllati dal Cost Management
+                {num(totals.verified)} of {num(totals.components)} checked by Cost Management
               </p>
             </div>
             <div className="kpi">
-              <p className="kpi__label">Assiemi</p>
+              <p className="kpi__label">Assemblies</p>
               <p className="kpi__value">{loading ? "—" : num(assemblies.length)}</p>
               <p className="kpi__hint">
-                {assemblies.length === 0 ? "Nessun assieme creato" : `su ${num(systems.length)} sistemi`}
+                {assemblies.length === 0 ? "No assemblies yet" : `across ${num(systems.length)} systems`}
               </p>
             </div>
           </div>
@@ -315,14 +314,14 @@ export function RegistryView() {
           <div className="split">
             <div className="panel">
               <div className="panel__head">
-                <h2 className="panel__title">Costo per sistema</h2>
+                <h2 className="panel__title">Cost by system</h2>
                 <p className="panel__hint">€</p>
               </div>
               <SystemBars rows={systemTotals} max={maxSystemCost} kind="cost" />
             </div>
             <div className="panel">
               <div className="panel__head">
-                <h2 className="panel__title">CO₂e per sistema</h2>
+                <h2 className="panel__title">CO₂e by system</h2>
                 <p className="panel__hint">kg CO₂e</p>
               </div>
               <SystemBars rows={systemTotals} max={maxSystemCo2} kind="co2" />
@@ -331,19 +330,19 @@ export function RegistryView() {
 
           <div className="panel panel--table" style={{ marginTop: 12 }}>
             <div className="panel__head">
-              <h2 className="panel__title">Stato dei team</h2>
-              <p className="panel__hint">{num(teams.length)} divisioni</p>
+              <h2 className="panel__title">Team status</h2>
+              <p className="panel__hint">{num(teams.length)} divisions</p>
             </div>
             <div className="table-wrap">
               <table className="data">
                 <thead>
                   <tr>
                     <th>Team</th>
-                    <th className="num">Componenti</th>
-                    <th className="num">Costo</th>
+                    <th className="num">Components</th>
+                    <th className="num">Cost</th>
                     <th className="num">CO₂e</th>
-                    <th className="num">Verificati</th>
-                    <th className="num">Ultima modifica</th>
+                    <th className="num">Verified</th>
+                    <th className="num">Last update</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -354,12 +353,12 @@ export function RegistryView() {
                       <td className="num">{eur(team.cost)}</td>
                       <td className="num">{kg(team.co2)}</td>
                       <td className="num">{team.components === 0 ? "—" : pct(verifiedShare(team))}</td>
-                      <td className="num">{dateIt(team.lastUpdate)}</td>
+                      <td className="num">{dateShort(team.lastUpdate)}</td>
                     </tr>
                   ))}
                   {teamTotals.length > 0 ? (
                     <tr className="total-row">
-                      <td>Totale</td>
+                      <td>Total</td>
                       <td className="num">{num(totals.components)}</td>
                       <td className="num">{eur(totals.cost)}</td>
                       <td className="num">{kg(totals.co2)}</td>
@@ -372,32 +371,32 @@ export function RegistryView() {
             </div>
             {teams.length === 0 && !loading ? (
               <div className="empty">
-                <p className="empty__title">Nessun team nel database</p>
-                <p className="empty__text">Esegui supabase/schema.sql per caricare sistemi e divisioni.</p>
+                <p className="empty__title">No teams in the database</p>
+                <p className="empty__text">Run supabase/schema.sql to load systems and divisions.</p>
               </div>
             ) : null}
           </div>
         </section>
 
-        {/* -------------------------------------------------------- assiemi */}
-        <section className="section" id="assiemi">
+        {/* ----------------------------------------------------- assemblies */}
+        <section className="section" id="assemblies">
           <div className="section__head">
             <div>
               <p className="eyebrow">
-                <span className="eyebrow__num">02</span>Assiemi
+                <span className="eyebrow__num">02</span>Assemblies
               </p>
-              <h2 className="section__title">Un assieme per ogni gruppo di pezzi</h2>
+              <h2 className="section__title">One assembly per group of parts</h2>
               <p className="section__note">
-                Ogni assieme appartiene a un sistema ufficiale e a un team. I componenti vivono dentro
-                l'assieme.
+                Every assembly belongs to one official system and one team. Components live inside the
+                assembly.
               </p>
             </div>
             <button
               type="button"
               className="btn btn--primary btn--sm"
-              onClick={() => (requireSession("Accedi per creare un assieme.") ? setAssemblyDraft("new") : null)}
+              onClick={() => (requireSession("Sign in to create an assembly.") ? setAssemblyDraft("new") : null)}
             >
-              + Nuovo assieme
+              + New assembly
             </button>
           </div>
 
@@ -406,15 +405,15 @@ export function RegistryView() {
               <table className="data">
                 <thead>
                   <tr>
-                    <th>Assieme</th>
-                    <th>Sistema</th>
+                    <th>Assembly</th>
+                    <th>System</th>
                     <th>Team</th>
-                    <th className="num">Componenti</th>
-                    <th className="num">Costo</th>
+                    <th className="num">Components</th>
+                    <th className="num">Cost</th>
                     <th className="num">CO₂e</th>
-                    <th>Stato</th>
+                    <th>Status</th>
                     <th className="row-actions">
-                      <span className="sr-only">Azioni</span>
+                      <span className="sr-only">Actions</span>
                     </th>
                   </tr>
                 </thead>
@@ -431,9 +430,7 @@ export function RegistryView() {
                         key={assembly.id}
                         className="is-clickable"
                         onClick={() =>
-                          requireSession("Accedi per modificare gli assiemi.")
-                            ? setAssemblyDraft(assembly)
-                            : null
+                          requireSession("Sign in to edit assemblies.") ? setAssemblyDraft(assembly) : null
                         }
                       >
                         <td className="cell-main">{assembly.name}</td>
@@ -445,7 +442,7 @@ export function RegistryView() {
                         <td>
                           <span className={`chip chip--${assembly.status}`}>
                             <span className="chip__dot" aria-hidden="true" />
-                            {assembly.status}
+                            {statusLabel(assembly.status)}
                           </span>
                         </td>
                         <td className="row-actions">
@@ -454,12 +451,12 @@ export function RegistryView() {
                             className="btn btn--quiet btn--sm"
                             onClick={(event) => {
                               event.stopPropagation();
-                              if (!requireSession("Accedi per inserire componenti.")) return;
+                              if (!requireSession("Sign in to add components.")) return;
                               setFilters((current) => ({ ...current, assembly: assembly.id }));
                               setComponentDraft("new");
                             }}
                           >
-                            + componente
+                            + component
                           </button>
                         </td>
                       </tr>
@@ -470,26 +467,26 @@ export function RegistryView() {
             </div>
             {assemblies.length === 0 && !loading ? (
               <div className="empty">
-                <p className="empty__title">Nessun assieme ancora</p>
+                <p className="empty__title">No assemblies yet</p>
                 <p className="empty__text">
-                  Inizia dai gruppi che conoscete meglio: sospensioni anteriori, telaio, impianto frenante.
-                  Ogni assieme raccoglie i suoi componenti con costo ed emissioni.
+                  Start from the groups you know best: front suspension, chassis, brake system. Each
+                  assembly collects its components with cost and emissions.
                 </p>
               </div>
             ) : null}
           </div>
         </section>
 
-        {/* ----------------------------------------------------- componenti */}
-        <section className="section" id="componenti">
+        {/* ----------------------------------------------------- components */}
+        <section className="section" id="components">
           <div className="section__head">
             <div>
               <p className="eyebrow">
-                <span className="eyebrow__num">03</span>Registro componenti
+                <span className="eyebrow__num">03</span>Components registry
               </p>
-              <h2 className="section__title">La BOM, pezzo per pezzo</h2>
+              <h2 className="section__title">The BOM, piece by piece</h2>
               <p className="section__note">
-                Cerca, filtra ed esporta. Il costo totale e la CO₂e totale sono quantità × valore unitario.
+                Search, filter and export. Total cost and total CO₂e are quantity × unit value.
               </p>
             </div>
           </div>
@@ -498,18 +495,18 @@ export function RegistryView() {
             <div className="filters">
               <input
                 className="input input--search"
-                placeholder="Cerca descrizione, codice, materiale, fornitore…"
+                placeholder="Search description, code, material, supplier…"
                 value={filters.q}
                 onChange={(event) => setFilters((current) => ({ ...current, q: event.target.value }))}
-                aria-label="Cerca componenti"
+                aria-label="Search components"
               />
               <select
                 className="select"
                 value={filters.system}
                 onChange={(event) => setFilters((current) => ({ ...current, system: event.target.value }))}
-                aria-label="Filtra per sistema"
+                aria-label="Filter by system"
               >
-                <option value="">Tutti i sistemi</option>
+                <option value="">All systems</option>
                 {systems.map((system) => (
                   <option key={system.id} value={system.id}>
                     {system.name}
@@ -520,9 +517,9 @@ export function RegistryView() {
                 className="select"
                 value={filters.team}
                 onChange={(event) => setFilters((current) => ({ ...current, team: event.target.value }))}
-                aria-label="Filtra per team"
+                aria-label="Filter by team"
               >
-                <option value="">Tutti i team</option>
+                <option value="">All teams</option>
                 {teams.map((team) => (
                   <option key={team.id} value={team.id}>
                     {team.name}
@@ -533,9 +530,9 @@ export function RegistryView() {
                 className="select"
                 value={filters.assembly}
                 onChange={(event) => setFilters((current) => ({ ...current, assembly: event.target.value }))}
-                aria-label="Filtra per assieme"
+                aria-label="Filter by assembly"
               >
-                <option value="">Tutti gli assiemi</option>
+                <option value="">All assemblies</option>
                 {assemblies.map((assembly) => (
                   <option key={assembly.id} value={assembly.id}>
                     {assembly.name}
@@ -546,11 +543,11 @@ export function RegistryView() {
                 className="select"
                 value={filters.status}
                 onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
-                aria-label="Filtra per stato"
+                aria-label="Filter by status"
               >
-                <option value="">Ogni stato</option>
-                <option value="bozza">Bozza</option>
-                <option value="verificato">Verificato</option>
+                <option value="">Any status</option>
+                <option value="bozza">Draft</option>
+                <option value="verificato">Verified</option>
               </select>
             </div>
             <div className="toolbar__actions">
@@ -558,15 +555,13 @@ export function RegistryView() {
                 type="button"
                 className="btn btn--primary btn--sm"
                 onClick={() =>
-                  requireSession("Accedi per inserire un componente.")
-                    ? setComponentDraft("new")
-                    : null
+                  requireSession("Sign in to add a component.") ? setComponentDraft("new") : null
                 }
               >
-                + Componente
+                + Component
               </button>
               <a className="btn btn--ghost btn--sm" href={exportHref}>
-                Esporta
+                Export
               </a>
             </div>
           </div>
@@ -576,14 +571,14 @@ export function RegistryView() {
               <table className="data">
                 <thead>
                   <tr>
-                    <th>Codice</th>
-                    <th>Descrizione</th>
-                    <th className="num">Q.tà</th>
-                    <th className="num">€ / unità</th>
-                    <th className="num">€ totale</th>
-                    <th className="num">CO₂e / unità</th>
-                    <th className="num">CO₂e totale</th>
-                    <th>Stato</th>
+                    <th>Code</th>
+                    <th>Description</th>
+                    <th className="num">Qty</th>
+                    <th className="num">€ / unit</th>
+                    <th className="num">Total €</th>
+                    <th className="num">CO₂e / unit</th>
+                    <th className="num">Total CO₂e</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -596,7 +591,7 @@ export function RegistryView() {
                         key={component.id}
                         className="is-clickable"
                         onClick={() => {
-                          if (requireSession("Accedi per modificare i componenti.")) {
+                          if (requireSession("Sign in to edit components.")) {
                             setComponentDraft(component);
                           }
                         }}
@@ -623,10 +618,10 @@ export function RegistryView() {
                               event.stopPropagation();
                               toggleStatus(component);
                             }}
-                            title="Cambia stato di verifica"
+                            title="Change verification status"
                           >
                             <span className="chip__dot" aria-hidden="true" />
-                            {component.status}
+                            {statusLabel(component.status)}
                           </button>
                         </td>
                       </tr>
@@ -637,8 +632,8 @@ export function RegistryView() {
                   <tfoot>
                     <tr className="total-row">
                       <td colSpan={4}>
-                        {num(filtered.length)} {filtered.length === 1 ? "componente" : "componenti"}
-                        {filtered.length !== components.length ? ` (filtrati da ${num(components.length)})` : ""}
+                        {num(filtered.length)} {filtered.length === 1 ? "component" : "components"}
+                        {filtered.length !== components.length ? ` (filtered from ${num(components.length)})` : ""}
                       </td>
                       <td className="num">{eur(filteredTotals.cost, true)}</td>
                       <td className="num" />
@@ -652,12 +647,12 @@ export function RegistryView() {
             {filtered.length === 0 && !loading ? (
               <div className="empty">
                 <p className="empty__title">
-                  {components.length === 0 ? "Il registro è vuoto" : "Nessun componente con questi filtri"}
+                  {components.length === 0 ? "The registry is empty" : "No components match these filters"}
                 </p>
                 <p className="empty__text">
                   {components.length === 0
-                    ? "Crea un assieme, poi aggiungi i componenti con costo unitario e CO₂e. Da lì la dashboard si popola da sola."
-                    : "Prova a rimuovere uno dei filtri o a cambiare la ricerca."}
+                    ? "Create an assembly, then add its components with unit cost and CO₂e. The dashboard fills in from there."
+                    : "Try removing one of the filters or changing the search."}
                 </p>
               </div>
             ) : null}
@@ -667,7 +662,7 @@ export function RegistryView() {
         <footer className="footer">
           <span>Poliba Corse · Cost Management</span>
           <span>
-            <Link href="/">Panoramica pubblica</Link> · <a href={exportHref}>Excel</a>
+            <Link href="/">Overview</Link> · <a href={exportHref}>Excel</a>
           </span>
         </footer>
       </main>
@@ -676,7 +671,7 @@ export function RegistryView() {
         <AuthDialog
           onClose={() => setAuthOpen(false)}
           teams={teams}
-          reason={authReason ?? "Accedi per inserire e modificare i dati del registro."}
+          reason={authReason ?? "Sign in to add and edit registry data."}
         />
       ) : null}
 
@@ -717,8 +712,8 @@ function SystemBars({
   if (rows.length === 0) {
     return (
       <div className="empty">
-        <p className="empty__title">Nessun sistema</p>
-        <p className="empty__text">Esegui supabase/schema.sql per caricare gli otto sistemi ufficiali.</p>
+        <p className="empty__title">No systems</p>
+        <p className="empty__text">Run supabase/schema.sql to load the eight official systems.</p>
       </div>
     );
   }
