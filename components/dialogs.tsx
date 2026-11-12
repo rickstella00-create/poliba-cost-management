@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase";
+import { useI18n } from "@/lib/i18n";
 import type { AssemblyRowDraft, ComponentDraft, Assembly, ComponentRow, TeamRow } from "@/lib/types";
 import type { SystemRow } from "@/lib/types";
 
@@ -23,6 +24,7 @@ export function Modal({
   onClose: () => void;
   wide?: boolean;
 }) {
+  const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -60,7 +62,7 @@ export function Modal({
             <p className="eyebrow">{eyebrow}</p>
             <h2 className="modal__title">{title}</h2>
           </div>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
+          <button type="button" className="icon-btn" onClick={onClose} aria-label={t("modal.close")}>
             ✕
           </button>
         </div>
@@ -103,6 +105,7 @@ export function AuthDialog({
   teams?: TeamRow[];
   reason?: string;
 }) {
+  const { t } = useI18n();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -121,9 +124,7 @@ export function AuthDialog({
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
         setError(
-          signInError.message === "Invalid login credentials"
-            ? "Wrong email or password. If this is your first visit, sign up."
-            : signInError.message,
+          signInError.message === "Invalid login credentials" ? t("auth.badCredentials") : signInError.message,
         );
         setBusy(false);
         return;
@@ -145,7 +146,7 @@ export function AuthDialog({
     }
 
     if (!data.session) {
-      setNotice("Account created. Check your inbox for the confirmation link.");
+      setNotice(t("auth.created"));
       setBusy(false);
       return;
     }
@@ -156,8 +157,8 @@ export function AuthDialog({
 
   return (
     <Modal
-      eyebrow="Access"
-      title={mode === "login" ? "Sign in to the registry" : "Create your account"}
+      eyebrow={t("auth.eyebrow")}
+      title={mode === "login" ? t("auth.login.title") : t("auth.signup.title")}
       onClose={onClose}
       footer={
         <>
@@ -170,11 +171,11 @@ export function AuthDialog({
               setNotice(null);
             }}
           >
-            {mode === "login" ? "No account? Sign up" : "Already have an account? Sign in"}
+            {mode === "login" ? t("auth.toSignup") : t("auth.toLogin")}
           </button>
           <div className="modal__actions">
             <button type="submit" form="auth-form" className="btn btn--primary" disabled={busy}>
-              {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Sign up"}
+              {busy ? t("auth.wait") : mode === "login" ? t("auth.signin") : t("auth.signup")}
             </button>
           </div>
         </>
@@ -183,7 +184,7 @@ export function AuthDialog({
       {reason ? <p className="form-note">{reason}</p> : null}
 
       <form id="auth-form" onSubmit={submit} className="form-grid" style={{ marginTop: 16 }}>
-        <Field label="Email" full>
+        <Field label={t("auth.email")} full>
           <input
             className="input"
             type="email"
@@ -194,7 +195,7 @@ export function AuthDialog({
             placeholder="name@poliba.it"
           />
         </Field>
-        <Field label="Password" hint="At least 6 characters." full>
+        <Field label={t("auth.password")} hint={t("auth.password.hint")} full>
           <input
             className="input"
             type="password"
@@ -206,9 +207,9 @@ export function AuthDialog({
           />
         </Field>
         {mode === "signup" && teams && teams.length > 0 ? (
-          <Field label="Your team" hint="Only used to personalise the view: it does not limit what you can edit." full>
+          <Field label={t("auth.team")} hint={t("auth.team.hint")} full>
             <select className="select" value={teamId} onChange={(event) => setTeamId(event.target.value)}>
-              <option value="">— choose —</option>
+              <option value="">{t("option.choose")}</option>
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>
                   {team.name}
@@ -258,6 +259,7 @@ export function ComponentDialog({
   onSubmit: (draft: ComponentDraft) => Promise<string | null>;
   onDelete?: (id: string) => Promise<string | null>;
 }) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<ComponentDraft>(
     component
       ? {
@@ -296,7 +298,7 @@ export function ComponentDialog({
 
   async function remove() {
     if (!component || !onDelete) return;
-    if (!window.confirm(`Delete "${component.description}"? This cannot be undone.`)) return;
+    if (!window.confirm(t("confirm.deleteComponent", { name: component.description }))) return;
     setBusy(true);
     const message = await onDelete(component.id);
     setBusy(false);
@@ -306,39 +308,39 @@ export function ComponentDialog({
 
   return (
     <Modal
-      eyebrow={component ? "Edit component" : "New component"}
-      title={component ? component.description : "Add a component"}
+      eyebrow={component ? t("comp.edit.eyebrow") : t("comp.new.eyebrow")}
+      title={component ? component.description : t("comp.new.title")}
       onClose={onClose}
       wide
       footer={
         <>
           {component && onDelete ? (
             <button type="button" className="btn btn--danger btn--sm" onClick={remove} disabled={busy}>
-              Delete
+              {t("btn.delete")}
             </button>
           ) : (
             <span />
           )}
           <div className="modal__actions">
             <button type="button" className="btn btn--ghost" onClick={onClose} disabled={busy}>
-              Cancel
+              {t("btn.cancel")}
             </button>
             <button type="submit" form="component-form" className="btn btn--primary" disabled={busy}>
-              {busy ? "Saving…" : "Save"}
+              {busy ? t("btn.saving") : t("btn.save")}
             </button>
           </div>
         </>
       }
     >
       <form id="component-form" onSubmit={submit} className="form-grid">
-        <Field label="Assembly" full>
+        <Field label={t("field.assembly")} full>
           <select
             className="select"
             required
             value={draft.assembly_id}
             onChange={(event) => set("assembly_id", event.target.value)}
           >
-            <option value="">— choose an assembly —</option>
+            <option value="">{t("option.chooseAssembly")}</option>
             {assemblies.map((assembly) => (
               <option key={assembly.id} value={assembly.id}>
                 {assembly.name}
@@ -347,7 +349,7 @@ export function ComponentDialog({
           </select>
         </Field>
 
-        <Field label="Part code">
+        <Field label={t("field.code")}>
           <input
             className="input"
             value={draft.code}
@@ -356,17 +358,17 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="Description" full>
+        <Field label={t("field.description")} full>
           <input
             className="input"
             required
             value={draft.description}
             onChange={(event) => set("description", event.target.value)}
-            placeholder="Upper wishbone"
+            placeholder={t("placeholder.description")}
           />
         </Field>
 
-        <Field label="Quantity">
+        <Field label={t("field.quantity")}>
           <input
             className="input"
             inputMode="decimal"
@@ -375,7 +377,7 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="Unit cost (€)">
+        <Field label={t("field.unitCost")}>
           <input
             className="input"
             inputMode="decimal"
@@ -384,7 +386,7 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="Material">
+        <Field label={t("field.material")}>
           <input
             className="input"
             value={draft.material}
@@ -393,7 +395,7 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="Unit mass (kg)">
+        <Field label={t("field.mass")}>
           <input
             className="input"
             inputMode="decimal"
@@ -402,28 +404,28 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="Process">
+        <Field label={t("field.process")}>
           <input
             className="input"
             value={draft.process}
             onChange={(event) => set("process", event.target.value)}
-            placeholder="Laser cutting + TIG welding"
+            placeholder={t("placeholder.process")}
           />
         </Field>
 
-        <Field label="Make / Buy">
+        <Field label={t("field.sourcing")}>
           <select
             className="select"
             value={draft.sourcing}
             onChange={(event) => set("sourcing", event.target.value as ComponentDraft["sourcing"])}
           >
             <option value="">—</option>
-            <option value="make">Make (in-house)</option>
-            <option value="buy">Buy (purchased)</option>
+            <option value="make">{t("option.make")}</option>
+            <option value="buy">{t("option.buy")}</option>
           </select>
         </Field>
 
-        <Field label="Supplier">
+        <Field label={t("field.supplier")}>
           <input
             className="input"
             value={draft.supplier}
@@ -431,7 +433,7 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="CO₂e per unit (kg)" hint="Value for a single part: the registry calculates the total.">
+        <Field label={t("field.co2unit")} hint={t("field.co2unit.hint")}>
           <input
             className="input"
             inputMode="decimal"
@@ -440,29 +442,27 @@ export function ComponentDialog({
           />
         </Field>
 
-        <Field label="CO₂e source" hint="Datasheet, supplier LCA, reference standard.">
+        <Field label={t("field.co2source")} hint={t("field.co2source.hint")}>
           <input
             className="input"
             value={draft.co2e_source}
             onChange={(event) => set("co2e_source", event.target.value)}
-            placeholder="Supplier EPD 2025"
+            placeholder={t("placeholder.co2source")}
           />
         </Field>
 
-        <Field label="Notes" full>
+        <Field label={t("field.notes")} full>
           <textarea
             className="input"
             value={draft.notes}
             onChange={(event) => set("notes", event.target.value)}
-            placeholder="Constraints, alternatives considered, references."
+            placeholder={t("placeholder.notes")}
           />
         </Field>
       </form>
 
       {component?.updated_by_email ? (
-        <p className="form-note">
-          Last edited by {component.updated_by_email}. Editing a verified row puts it back to draft.
-        </p>
+        <p className="form-note">{t("note.lastEdited", { email: component.updated_by_email })}</p>
       ) : null}
 
       {error ? <p className="form-error">{error}</p> : null}
@@ -487,6 +487,7 @@ export function AssemblyDialog({
   onSubmit: (draft: AssemblyRowDraft) => Promise<string | null>;
   onDelete?: (id: string) => Promise<string | null>;
 }) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<AssemblyRowDraft>(
     assembly
       ? {
@@ -516,12 +517,7 @@ export function AssemblyDialog({
 
   async function remove() {
     if (!assembly || !onDelete) return;
-    if (
-      !window.confirm(
-        `Delete the assembly "${assembly.name}" and all its components? This cannot be undone.`,
-      )
-    )
-      return;
+    if (!window.confirm(t("confirm.deleteAssembly", { name: assembly.name }))) return;
     setBusy(true);
     const message = await onDelete(assembly.id);
     setBusy(false);
@@ -531,47 +527,47 @@ export function AssemblyDialog({
 
   return (
     <Modal
-      eyebrow={assembly ? "Edit assembly" : "New assembly"}
-      title={assembly ? assembly.name : "Add an assembly"}
+      eyebrow={assembly ? t("asm.edit.eyebrow") : t("asm.new.eyebrow")}
+      title={assembly ? assembly.name : t("asm.new.title")}
       onClose={onClose}
       footer={
         <>
           {assembly && onDelete ? (
             <button type="button" className="btn btn--danger btn--sm" onClick={remove} disabled={busy}>
-              Delete
+              {t("btn.delete")}
             </button>
           ) : (
             <span />
           )}
           <div className="modal__actions">
             <button type="button" className="btn btn--ghost" onClick={onClose} disabled={busy}>
-              Cancel
+              {t("btn.cancel")}
             </button>
             <button type="submit" form="assembly-form" className="btn btn--primary" disabled={busy}>
-              {busy ? "Saving…" : "Save"}
+              {busy ? t("btn.saving") : t("btn.save")}
             </button>
           </div>
         </>
       }
     >
       <form id="assembly-form" onSubmit={submit} className="form-grid">
-        <Field label="Assembly name" full>
+        <Field label={t("field.assemblyName")} full>
           <input
             className="input"
             required
             value={draft.name}
             onChange={(event) => set("name", event.target.value)}
-            placeholder="Front suspension"
+            placeholder={t("placeholder.assemblyName")}
           />
         </Field>
-        <Field label="System">
+        <Field label={t("field.system")}>
           <select
             className="select"
             required
             value={draft.system_id}
             onChange={(event) => set("system_id", event.target.value)}
           >
-            <option value="">— choose —</option>
+            <option value="">{t("option.choose")}</option>
             {systems.map((system) => (
               <option key={system.id} value={system.id}>
                 {system.name}
@@ -579,14 +575,14 @@ export function AssemblyDialog({
             ))}
           </select>
         </Field>
-        <Field label="Team">
+        <Field label={t("field.team")}>
           <select
             className="select"
             required
             value={draft.team_id}
             onChange={(event) => set("team_id", event.target.value)}
           >
-            <option value="">— choose —</option>
+            <option value="">{t("option.choose")}</option>
             {teams.map((team) => (
               <option key={team.id} value={team.id}>
                 {team.name}
@@ -594,7 +590,7 @@ export function AssemblyDialog({
             ))}
           </select>
         </Field>
-        <Field label="Notes" full>
+        <Field label={t("field.notes")} full>
           <textarea
             className="input"
             value={draft.notes}
