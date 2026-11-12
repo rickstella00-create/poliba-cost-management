@@ -6,7 +6,8 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { AUTH_ENABLED } from "@/lib/config";
 import { loadRegistry, emptyRegistry } from "@/lib/queries";
-import { dateShort, eur, kg, num, pct, statusLabel, toNumber } from "@/lib/format";
+import { toNumber } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import {
   assemblyTotals,
   bySystem,
@@ -35,17 +36,8 @@ type Filters = {
 
 const emptyFilters: Filters = { q: "", system: "", team: "", assembly: "", status: "" };
 
-function friendly(message: string): string {
-  if (/row-level security|violates row-level/i.test(message)) {
-    return "Permission denied: sign in to edit the data.";
-  }
-  if (/duplicate key|unique constraint/i.test(message)) {
-    return "An assembly with this name already exists in that system.";
-  }
-  return message;
-}
-
 export function RegistryView() {
+  const { t, lang, eur, kg, num, pct, date, statusLabel } = useI18n();
   const [registry, setRegistry] = useState<Registry>(emptyRegistry);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -69,13 +61,12 @@ export function RegistryView() {
       if (!alive) return;
       setRegistry(next);
       setLoading(false);
-      if (next.systems.length === 0) {
-        setLoadError("The database is empty: run supabase/schema.sql once in the Supabase SQL editor.");
-      }
+      if (next.systems.length === 0) setLoadError(t("db.empty"));
     });
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -92,10 +83,10 @@ export function RegistryView() {
     setLoadError(null);
   };
 
-  const requireSession = (reason: string): boolean => {
+  const requireSession = (): boolean => {
     if (!AUTH_ENABLED) return true;
     if (session) return true;
-    setAuthReason(reason);
+    setAuthReason(t("signin.reason"));
     setAuthOpen(true);
     return false;
   };
@@ -149,14 +140,19 @@ export function RegistryView() {
     if (filters.team) params.set("team", filters.team);
     if (filters.status) params.set("status", filters.status);
     if (filters.q) params.set("q", filters.q);
-    const query = params.toString();
-    return `/api/export${query ? `?${query}` : ""}`;
-  }, [filters]);
+    params.set("lang", lang);
+    return `/api/export?${params.toString()}`;
+  }, [filters, lang]);
+
+  const friendly = (message: string): string => {
+    if (/row-level security|violates row-level/i.test(message)) return t("error.permission");
+    if (/duplicate key|unique constraint/i.test(message)) return t("error.duplicate");
+    return message;
+  };
 
   async function saveComponent(draft: ComponentDraft): Promise<string | null> {
-    if (!requireSession("Sign in to add and edit registry components.")) {
-      return "Sign in to save.";
-    }
+    if (!requireSession()) return t("error.signInToSave");
+
     const payload = {
       assembly_id: draft.assembly_id,
       code: draft.code.trim() || null,
@@ -174,8 +170,8 @@ export function RegistryView() {
       updated_by_email: session?.user.email ?? null,
     };
 
-    if (!payload.description) return "The description is required.";
-    if (!payload.assembly_id) return "Choose the assembly this component belongs to.";
+    if (!payload.description) return t("error.description");
+    if (!payload.assembly_id) return t("error.assembly");
 
     const { error } = draft.id
       ? await supabase.from("components").update(payload).eq("id", draft.id)
@@ -185,21 +181,21 @@ export function RegistryView() {
 
     if (error) return friendly(error.message);
     await refresh();
-    setFlash(draft.id ? "Component updated." : "Component added.");
+    setFlash(draft.id ? t("flash.componentUpdated") : t("flash.componentAdded"));
     return null;
   }
 
   async function deleteComponent(id: string): Promise<string | null> {
-    if (!requireSession("Sign in to delete a component.")) return "Sign in to continue.";
+    if (!requireSession()) return t("error.signInToSave");
     const { error } = await supabase.from("components").delete().eq("id", id);
     if (error) return friendly(error.message);
     await refresh();
-    setFlash("Component deleted.");
+    setFlash(t("flash.componentDeleted"));
     return null;
   }
 
   async function toggleStatus(component: ComponentRow) {
-    if (!requireSession("Sign in to change the verification status.")) return;
+    if (!requireSession()) return;
     const next = component.status === "verificato" ? "bozza" : "verificato";
     const { error } = await supabase
       .from("components")
@@ -210,11 +206,11 @@ export function RegistryView() {
       return;
     }
     await refresh();
-    setFlash(next === "verificato" ? "Component verified." : "Back to draft.");
+    setFlash(next === "verificato" ? t("flash.componentVerified") : t("flash.backToDraft"));
   }
 
   async function saveAssembly(draft: AssemblyRowDraft): Promise<string | null> {
-    if (!requireSession("Sign in to create or edit assemblies.")) return "Sign in to continue.";
+    if (!requireSession()) return t("error.signInToSave");
     const payload = {
       name: draft.name.trim(),
       system_id: draft.system_id,
@@ -222,9 +218,9 @@ export function RegistryView() {
       notes: draft.notes.trim() || null,
       updated_by_email: session?.user.email ?? null,
     };
-    if (!payload.name) return "The assembly name is required.";
-    if (!payload.system_id) return "Choose the system.";
-    if (!payload.team_id) return "Choose the responsible team.";
+    if (!payload.name) return t("error.name");
+    if (!payload.system_id) return t("error.system");
+    if (!payload.team_id) return t("error.team");
 
     const { error } = draft.id
       ? await supabase.from("assemblies").update(payload).eq("id", draft.id)
@@ -234,16 +230,16 @@ export function RegistryView() {
 
     if (error) return friendly(error.message);
     await refresh();
-    setFlash(draft.id ? "Assembly updated." : "Assembly created.");
+    setFlash(draft.id ? t("flash.assemblyUpdated") : t("flash.assemblyCreated"));
     return null;
   }
 
   async function deleteAssembly(id: string): Promise<string | null> {
-    if (!requireSession("Sign in to delete an assembly.")) return "Sign in to continue.";
+    if (!requireSession()) return t("error.signInToSave");
     const { error } = await supabase.from("assemblies").delete().eq("id", id);
     if (error) return friendly(error.message);
     await refresh();
-    setFlash("Assembly deleted.");
+    setFlash(t("flash.assemblyDeleted"));
     return null;
   }
 
@@ -257,8 +253,7 @@ export function RegistryView() {
         {loadError ? <p className="notice" style={{ marginTop: 24 }}>{loadError}</p> : null}
         {!AUTH_ENABLED ? (
           <p className="form-note" style={{ marginTop: 24 }}>
-            Experimental phase: the site is open, anyone with the link can add and edit data. Email
-            sign-in is already wired up and will be switched on later.
+            {t("banner.experimental")}
           </p>
         ) : null}
         {flash ? <p className="form-ok" style={{ marginTop: 24 }}>{flash}</p> : null}
@@ -268,45 +263,48 @@ export function RegistryView() {
           <div className="section__head">
             <div>
               <p className="eyebrow">
-                <span className="eyebrow__num">01</span>Overview
+                <span className="eyebrow__num">01</span>
+                {t("overview.eyebrow")}
               </p>
-              <h1 className="section__title">Cost and weight of the car</h1>
-              <p className="section__note">
-                Totals come from the components entered by the teams. Editing a verified row puts it
-                back to draft.
-              </p>
+              <h1 className="section__title">{t("overview.title")}</h1>
+              <p className="section__note">{t("overview.note")}</p>
             </div>
             <a className="btn btn--ghost btn--sm" href={exportHref}>
-              Export Excel
+              {t("action.exportExcel")}
             </a>
           </div>
 
           <div className="kpi-grid">
             <div className="kpi kpi--accent">
-              <p className="kpi__label">Total cost</p>
+              <p className="kpi__label">{t("kpi.totalCost")}</p>
               <p className="kpi__value">{loading ? "—" : eur(totals.cost)}</p>
               <p className="kpi__hint">
-                {num(totals.components)} {totals.components === 1 ? "component" : "components"} in the
-                registry
+                {num(totals.components)}{" "}
+                {totals.components === 1 ? t("kpi.componentsHint.one") : t("kpi.componentsHint.many")}
               </p>
             </div>
             <div className="kpi">
-              <p className="kpi__label">Total CO₂e</p>
+              <p className="kpi__label">{t("kpi.totalCo2")}</p>
               <p className="kpi__value">{loading ? "—" : kg(totals.co2)}</p>
-              <p className="kpi__hint">Sum of the values entered by the teams</p>
+              <p className="kpi__hint">{t("kpi.co2Note")}</p>
             </div>
             <div className="kpi">
-              <p className="kpi__label">Verified</p>
+              <p className="kpi__label">{t("kpi.verified")}</p>
               <p className="kpi__value">{loading ? "—" : pct(verifiedShare(totals))}</p>
               <p className="kpi__hint">
-                {num(totals.verified)} of {num(totals.components)} checked by Cost Management
+                {t("kpi.verifiedNote", {
+                  verified: num(totals.verified),
+                  total: num(totals.components),
+                })}
               </p>
             </div>
             <div className="kpi">
-              <p className="kpi__label">Assemblies</p>
+              <p className="kpi__label">{t("kpi.assemblies")}</p>
               <p className="kpi__value">{loading ? "—" : num(assemblies.length)}</p>
               <p className="kpi__hint">
-                {assemblies.length === 0 ? "No assemblies yet" : `across ${num(systems.length)} systems`}
+                {assemblies.length === 0
+                  ? t("kpi.assemblies.none")
+                  : t("kpi.assemblies.systems", { count: num(systems.length) })}
               </p>
             </div>
           </div>
@@ -314,14 +312,14 @@ export function RegistryView() {
           <div className="split">
             <div className="panel">
               <div className="panel__head">
-                <h2 className="panel__title">Cost by system</h2>
+                <h2 className="panel__title">{t("panel.costBySystem")}</h2>
                 <p className="panel__hint">€</p>
               </div>
               <SystemBars rows={systemTotals} max={maxSystemCost} kind="cost" />
             </div>
             <div className="panel">
               <div className="panel__head">
-                <h2 className="panel__title">CO₂e by system</h2>
+                <h2 className="panel__title">{t("panel.co2BySystem")}</h2>
                 <p className="panel__hint">kg CO₂e</p>
               </div>
               <SystemBars rows={systemTotals} max={maxSystemCo2} kind="co2" />
@@ -330,19 +328,19 @@ export function RegistryView() {
 
           <div className="panel panel--table" style={{ marginTop: 12 }}>
             <div className="panel__head">
-              <h2 className="panel__title">Team status</h2>
-              <p className="panel__hint">{num(teams.length)} divisions</p>
+              <h2 className="panel__title">{t("panel.teamStatus")}</h2>
+              <p className="panel__hint">{t("panel.divisions", { count: num(teams.length) })}</p>
             </div>
             <div className="table-wrap">
               <table className="data">
                 <thead>
                   <tr>
-                    <th>Team</th>
-                    <th className="num">Components</th>
-                    <th className="num">Cost</th>
-                    <th className="num">CO₂e</th>
-                    <th className="num">Verified</th>
-                    <th className="num">Last update</th>
+                    <th>{t("col.team")}</th>
+                    <th className="num">{t("col.components")}</th>
+                    <th className="num">{t("col.cost")}</th>
+                    <th className="num">{t("col.co2")}</th>
+                    <th className="num">{t("col.verified")}</th>
+                    <th className="num">{t("col.lastUpdate")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -353,12 +351,12 @@ export function RegistryView() {
                       <td className="num">{eur(team.cost)}</td>
                       <td className="num">{kg(team.co2)}</td>
                       <td className="num">{team.components === 0 ? "—" : pct(verifiedShare(team))}</td>
-                      <td className="num">{dateShort(team.lastUpdate)}</td>
+                      <td className="num">{date(team.lastUpdate)}</td>
                     </tr>
                   ))}
                   {teamTotals.length > 0 ? (
                     <tr className="total-row">
-                      <td>Total</td>
+                      <td>{t("col.total")}</td>
                       <td className="num">{num(totals.components)}</td>
                       <td className="num">{eur(totals.cost)}</td>
                       <td className="num">{kg(totals.co2)}</td>
@@ -371,8 +369,8 @@ export function RegistryView() {
             </div>
             {teams.length === 0 && !loading ? (
               <div className="empty">
-                <p className="empty__title">No teams in the database</p>
-                <p className="empty__text">Run supabase/schema.sql to load systems and divisions.</p>
+                <p className="empty__title">{t("empty.teams.title")}</p>
+                <p className="empty__text">{t("empty.teams.text")}</p>
               </div>
             ) : null}
           </div>
@@ -383,20 +381,18 @@ export function RegistryView() {
           <div className="section__head">
             <div>
               <p className="eyebrow">
-                <span className="eyebrow__num">02</span>Assemblies
+                <span className="eyebrow__num">02</span>
+                {t("assemblies.eyebrow")}
               </p>
-              <h2 className="section__title">One assembly per group of parts</h2>
-              <p className="section__note">
-                Every assembly belongs to one official system and one team. Components live inside the
-                assembly.
-              </p>
+              <h2 className="section__title">{t("assemblies.title")}</h2>
+              <p className="section__note">{t("assemblies.note")}</p>
             </div>
             <button
               type="button"
               className="btn btn--primary btn--sm"
-              onClick={() => (requireSession("Sign in to create an assembly.") ? setAssemblyDraft("new") : null)}
+              onClick={() => (requireSession() ? setAssemblyDraft("new") : null)}
             >
-              + New assembly
+              {t("action.newAssembly")}
             </button>
           </div>
 
@@ -405,15 +401,15 @@ export function RegistryView() {
               <table className="data">
                 <thead>
                   <tr>
-                    <th>Assembly</th>
-                    <th>System</th>
-                    <th>Team</th>
-                    <th className="num">Components</th>
-                    <th className="num">Cost</th>
-                    <th className="num">CO₂e</th>
-                    <th>Status</th>
+                    <th>{t("col.assembly")}</th>
+                    <th>{t("col.system")}</th>
+                    <th>{t("col.team")}</th>
+                    <th className="num">{t("col.components")}</th>
+                    <th className="num">{t("col.cost")}</th>
+                    <th className="num">{t("col.co2")}</th>
+                    <th>{t("col.status")}</th>
                     <th className="row-actions">
-                      <span className="sr-only">Actions</span>
+                      <span className="sr-only">{t("col.actions")}</span>
                     </th>
                   </tr>
                 </thead>
@@ -429,9 +425,7 @@ export function RegistryView() {
                       <tr
                         key={assembly.id}
                         className="is-clickable"
-                        onClick={() =>
-                          requireSession("Sign in to edit assemblies.") ? setAssemblyDraft(assembly) : null
-                        }
+                        onClick={() => (requireSession() ? setAssemblyDraft(assembly) : null)}
                       >
                         <td className="cell-main">{assembly.name}</td>
                         <td>{systemById.get(assembly.system_id)?.name ?? "—"}</td>
@@ -451,12 +445,12 @@ export function RegistryView() {
                             className="btn btn--quiet btn--sm"
                             onClick={(event) => {
                               event.stopPropagation();
-                              if (!requireSession("Sign in to add components.")) return;
+                              if (!requireSession()) return;
                               setFilters((current) => ({ ...current, assembly: assembly.id }));
                               setComponentDraft("new");
                             }}
                           >
-                            + component
+                            {t("action.addComponentInline")}
                           </button>
                         </td>
                       </tr>
@@ -467,11 +461,8 @@ export function RegistryView() {
             </div>
             {assemblies.length === 0 && !loading ? (
               <div className="empty">
-                <p className="empty__title">No assemblies yet</p>
-                <p className="empty__text">
-                  Start from the groups you know best: front suspension, chassis, brake system. Each
-                  assembly collects its components with cost and emissions.
-                </p>
+                <p className="empty__title">{t("empty.assemblies.title")}</p>
+                <p className="empty__text">{t("empty.assemblies.text")}</p>
               </div>
             ) : null}
           </div>
@@ -482,12 +473,11 @@ export function RegistryView() {
           <div className="section__head">
             <div>
               <p className="eyebrow">
-                <span className="eyebrow__num">03</span>Components registry
+                <span className="eyebrow__num">03</span>
+                {t("components.eyebrow")}
               </p>
-              <h2 className="section__title">The BOM, piece by piece</h2>
-              <p className="section__note">
-                Search, filter and export. Total cost and total CO₂e are quantity × unit value.
-              </p>
+              <h2 className="section__title">{t("components.title")}</h2>
+              <p className="section__note">{t("components.note")}</p>
             </div>
           </div>
 
@@ -495,18 +485,18 @@ export function RegistryView() {
             <div className="filters">
               <input
                 className="input input--search"
-                placeholder="Search description, code, material, supplier…"
+                placeholder={t("search.placeholder")}
                 value={filters.q}
                 onChange={(event) => setFilters((current) => ({ ...current, q: event.target.value }))}
-                aria-label="Search components"
+                aria-label={t("search.aria")}
               />
               <select
                 className="select"
                 value={filters.system}
                 onChange={(event) => setFilters((current) => ({ ...current, system: event.target.value }))}
-                aria-label="Filter by system"
+                aria-label={t("filter.system")}
               >
-                <option value="">All systems</option>
+                <option value="">{t("filter.allSystems")}</option>
                 {systems.map((system) => (
                   <option key={system.id} value={system.id}>
                     {system.name}
@@ -517,9 +507,9 @@ export function RegistryView() {
                 className="select"
                 value={filters.team}
                 onChange={(event) => setFilters((current) => ({ ...current, team: event.target.value }))}
-                aria-label="Filter by team"
+                aria-label={t("filter.team")}
               >
-                <option value="">All teams</option>
+                <option value="">{t("filter.allTeams")}</option>
                 {teams.map((team) => (
                   <option key={team.id} value={team.id}>
                     {team.name}
@@ -530,9 +520,9 @@ export function RegistryView() {
                 className="select"
                 value={filters.assembly}
                 onChange={(event) => setFilters((current) => ({ ...current, assembly: event.target.value }))}
-                aria-label="Filter by assembly"
+                aria-label={t("filter.assembly")}
               >
-                <option value="">All assemblies</option>
+                <option value="">{t("filter.allAssemblies")}</option>
                 {assemblies.map((assembly) => (
                   <option key={assembly.id} value={assembly.id}>
                     {assembly.name}
@@ -543,25 +533,23 @@ export function RegistryView() {
                 className="select"
                 value={filters.status}
                 onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
-                aria-label="Filter by status"
+                aria-label={t("filter.status")}
               >
-                <option value="">Any status</option>
-                <option value="bozza">Draft</option>
-                <option value="verificato">Verified</option>
+                <option value="">{t("filter.anyStatus")}</option>
+                <option value="bozza">{t("status.draft")}</option>
+                <option value="verificato">{t("status.verified")}</option>
               </select>
             </div>
             <div className="toolbar__actions">
               <button
                 type="button"
                 className="btn btn--primary btn--sm"
-                onClick={() =>
-                  requireSession("Sign in to add a component.") ? setComponentDraft("new") : null
-                }
+                onClick={() => (requireSession() ? setComponentDraft("new") : null)}
               >
-                + Component
+                {t("action.addComponent")}
               </button>
               <a className="btn btn--ghost btn--sm" href={exportHref}>
-                Export
+                {t("action.export")}
               </a>
             </div>
           </div>
@@ -571,14 +559,14 @@ export function RegistryView() {
               <table className="data">
                 <thead>
                   <tr>
-                    <th>Code</th>
-                    <th>Description</th>
-                    <th className="num">Qty</th>
-                    <th className="num">€ / unit</th>
-                    <th className="num">Total €</th>
-                    <th className="num">CO₂e / unit</th>
-                    <th className="num">Total CO₂e</th>
-                    <th>Status</th>
+                    <th>{t("col.code")}</th>
+                    <th>{t("col.description")}</th>
+                    <th className="num">{t("col.qty")}</th>
+                    <th className="num">{t("col.unitCost")}</th>
+                    <th className="num">{t("col.totalCost")}</th>
+                    <th className="num">{t("col.unitCo2")}</th>
+                    <th className="num">{t("col.totalCo2")}</th>
+                    <th>{t("col.status")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -591,9 +579,7 @@ export function RegistryView() {
                         key={component.id}
                         className="is-clickable"
                         onClick={() => {
-                          if (requireSession("Sign in to edit components.")) {
-                            setComponentDraft(component);
-                          }
+                          if (requireSession()) setComponentDraft(component);
                         }}
                       >
                         <td className="cell-code">{component.code || "—"}</td>
@@ -618,7 +604,7 @@ export function RegistryView() {
                               event.stopPropagation();
                               toggleStatus(component);
                             }}
-                            title="Change verification status"
+                            title={t("status.change")}
                           >
                             <span className="chip__dot" aria-hidden="true" />
                             {statusLabel(component.status)}
@@ -632,8 +618,12 @@ export function RegistryView() {
                   <tfoot>
                     <tr className="total-row">
                       <td colSpan={4}>
-                        {num(filtered.length)} {filtered.length === 1 ? "component" : "components"}
-                        {filtered.length !== components.length ? ` (filtered from ${num(components.length)})` : ""}
+                        {t(filtered.length === 1 ? "footer.count.one" : "footer.count.many", {
+                          count: num(filtered.length),
+                        })}
+                        {filtered.length !== components.length
+                          ? ` ${t("footer.filtered", { total: num(components.length) })}`
+                          : ""}
                       </td>
                       <td className="num">{eur(filteredTotals.cost, true)}</td>
                       <td className="num" />
@@ -647,12 +637,10 @@ export function RegistryView() {
             {filtered.length === 0 && !loading ? (
               <div className="empty">
                 <p className="empty__title">
-                  {components.length === 0 ? "The registry is empty" : "No components match these filters"}
+                  {components.length === 0 ? t("empty.registry.title") : t("empty.filters.title")}
                 </p>
                 <p className="empty__text">
-                  {components.length === 0
-                    ? "Create an assembly, then add its components with unit cost and CO₂e. The dashboard fills in from there."
-                    : "Try removing one of the filters or changing the search."}
+                  {components.length === 0 ? t("empty.registry.text") : t("empty.filters.text")}
                 </p>
               </div>
             ) : null}
@@ -662,7 +650,7 @@ export function RegistryView() {
         <footer className="footer">
           <span>Poliba Corse · Cost Management</span>
           <span>
-            <Link href="/">Overview</Link> · <a href={exportHref}>Excel</a>
+            <Link href="/">{t("footer.overview")}</Link> · <a href={exportHref}>{t("nav.excel")}</a>
           </span>
         </footer>
       </main>
@@ -671,7 +659,7 @@ export function RegistryView() {
         <AuthDialog
           onClose={() => setAuthOpen(false)}
           teams={teams}
-          reason={authReason ?? "Sign in to add and edit registry data."}
+          reason={authReason ?? t("signin.reason")}
         />
       ) : null}
 
@@ -709,11 +697,12 @@ function SystemBars({
   max: number;
   kind: "cost" | "co2";
 }) {
+  const { t, eur, num } = useI18n();
+
   if (rows.length === 0) {
     return (
       <div className="empty">
-        <p className="empty__title">No systems</p>
-        <p className="empty__text">Run supabase/schema.sql to load the eight official systems.</p>
+        <p className="empty__title">{t("home.systems.empty")}</p>
       </div>
     );
   }
