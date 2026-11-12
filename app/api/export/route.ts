@@ -174,7 +174,9 @@ export async function GET(request: Request) {
   ];
 
   summary.addRow(["Poliba Corse · Cost & Emissions"]).font = { bold: true, size: 14 };
-  summary.addRow([`Exported on ${new Date().toLocaleDateString("en-GB")}`]);
+  summary.addRow([
+    `Exported on ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}`,
+  ]);
   summary.addRow([]);
 
   let cursor = 4;
