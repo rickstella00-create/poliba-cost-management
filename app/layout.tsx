@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Poliba Corse · Cost & Emissions",
+  title: "Cost & Emissions · Registro dati",
   description:
-    "Il registro unico di costi ed emissioni della monoposto del Poliba Corse: sistemi, assiemi e componenti in un database consultabile ed esportabile.",
+    "Registro di costi ed emissioni della monoposto: sistemi, assiemi e componenti in un database consultabile ed esportabile.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

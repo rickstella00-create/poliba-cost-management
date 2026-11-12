@@ -34,41 +34,33 @@ export default function HomePage() {
 
       <main className="wrap">
         <section className="hero">
-          <p className="eyebrow">
-            <span className="eyebrow__num">01</span>Formula Student · Politecnico di Bari
-          </p>
-          <h1 className="display">
-            Ogni pezzo ha un prezzo.
-            <br />
-            <span className="display__accent">Ogni pezzo lascia una traccia.</span>
-          </h1>
+          <h1 className="display">Registro costi ed emissioni</h1>
           <p className="lede">
-            Il registro unico di costi ed emissioni della monoposto. Gli otto sistemi inseriscono i
-            componenti, il Cost Management verifica, la BOM esce in Excel quando serve.
+            Un unico posto dove ogni team inserisce i componenti della monoposto con costo ed emissioni.
+            I dati sono leggibili da chiunque abbia il link, si modificano dopo l&apos;accesso e si esportano
+            in Excel.
           </p>
           <div className="hero__actions">
             <Link className="btn btn--primary" href="/registro">
               Apri il registro
             </Link>
-            <a className="btn btn--ghost" href="/api/export">
-              Scarica la BOM in Excel
+            <a className="btn" href="/api/export">
+              Scarica Excel
             </a>
           </div>
           <div className="hero__meta">
-            <span>PC One · 2027</span>
             <span>{num(registry.assemblies.length)} assiemi</span>
             <span>{num(registry.components.length)} componenti</span>
-            <span>{num(teams.length)} divisioni</span>
+            <span>{num(teams.length)} team</span>
+            <span>{num(systems.length)} sistemi</span>
           </div>
         </section>
 
         <section className="section">
           <div className="section__head">
             <div>
-              <p className="eyebrow">
-                <span className="eyebrow__num">02</span>Il numero che conta
-              </p>
-              <h2 className="section__title">Quanto costa, quanto pesa sull&apos;aria</h2>
+              <h2 className="section__title">Totali attuali</h2>
+              <p className="section__note">Calcolati dai componenti inseriti nei rispettivi assiemi.</p>
             </div>
           </div>
 
@@ -76,17 +68,20 @@ export default function HomePage() {
             <div className="kpi kpi--accent">
               <p className="kpi__label">Costo totale</p>
               <p className="kpi__value">{loading ? "—" : eur(totals.cost)}</p>
-              <p className="kpi__hint">Somma dei componenti a registro</p>
             </div>
             <div className="kpi">
               <p className="kpi__label">CO₂e totale</p>
               <p className="kpi__value">{loading ? "—" : kg(totals.co2)}</p>
-              <p className="kpi__hint">Cradle-to-gate, dato per dato</p>
             </div>
             <div className="kpi">
               <p className="kpi__label">Componenti</p>
               <p className="kpi__value">{loading ? "—" : num(totals.components)}</p>
-              <p className="kpi__hint">{num(totals.verified)} già verificati</p>
+            </div>
+            <div className="kpi">
+              <p className="kpi__label">Verificati</p>
+              <p className="kpi__value">
+                {loading ? "—" : `${num(totals.verified)} / ${num(totals.components)}`}
+              </p>
             </div>
           </div>
         </section>
@@ -94,13 +89,9 @@ export default function HomePage() {
         <section className="section">
           <div className="section__head">
             <div>
-              <p className="eyebrow">
-                <span className="eyebrow__num">03</span>Gli otto sistemi
-              </p>
-              <h2 className="section__title">Come si divide la monoposto</h2>
+              <h2 className="section__title">Sistemi</h2>
               <p className="section__note">
-                Ogni assieme appartiene a uno di questi sistemi: è la stessa suddivisione che i giudici
-                del Cost event si aspettano di trovare.
+                Ogni assieme appartiene a uno di questi sistemi.
               </p>
             </div>
           </div>
@@ -108,7 +99,6 @@ export default function HomePage() {
           <ul className="cards">
             {systems.map((system) => (
               <li key={system.id}>
-                <span className="cards__code">{system.code}</span>
                 <span className="cards__name">{system.name}</span>
               </li>
             ))}
@@ -117,8 +107,8 @@ export default function HomePage() {
         </section>
 
         <footer className="footer">
-          <span>Poliba Corse · Cost Management</span>
-          <span>Politecnico di Bari · dal 2006</span>
+          <span>Registro costi ed emissioni</span>
+          <span>Dati consultabili pubblicamente, modifica previa accesso</span>
         </footer>
       </main>
     </>

@@ -22,11 +22,10 @@ export function AppHeader() {
     <>
       <header className="site-header">
         <div className="wrap site-header__inner">
-          <Link href="/" className="brand" aria-label="Poliba Corse Cost & Emissions, home">
-            <span className="brand__mark">PC</span>
+          <Link href="/" className="brand" aria-label="Cost & Emissions, home">
             <span className="brand__text">
-              <span className="brand__title">Poliba Corse</span>
-              <span className="brand__sub">Cost &amp; Emissions</span>
+              <span className="brand__title">Cost &amp; Emissions</span>
+              <span className="brand__sub">registro dati monoposto</span>
             </span>
           </Link>
 
@@ -58,7 +57,7 @@ export function AppHeader() {
                 </button>
               </>
             ) : (
-              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setAuthOpen(true)}>
+              <button type="button" className="btn btn--sm" onClick={() => setAuthOpen(true)}>
                 Accedi
               </button>
             )}
