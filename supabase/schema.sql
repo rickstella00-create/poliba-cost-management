@@ -1,8 +1,6 @@
 -- Poliba Corse · Cost & Emissions
 -- Schema del registro costi ed emissioni (monoposto in sviluppo).
--- Da eseguire una volta sola nell'SQL Editor di Supabase.
-
-create extension if not exists pgcrypto;
+-- Già applicato al progetto Supabase cyfzlhucwuilruazfyrs.
 
 -- ---------------------------------------------------------------- tipi
 do $$ begin
@@ -29,7 +27,7 @@ create table if not exists public.teams (
 );
 
 create table if not exists public.profiles (
-  id         uuid primary key references auth.users(id) on delete cascade,
+  id         uuid primary key default gen_random_uuid() references auth.users(id) on delete cascade,
   email      text not null,
   team_id    uuid references public.teams(id) on delete set null,
   created_at timestamptz not null default now(),
@@ -85,6 +83,8 @@ create index if not exists assemblies_team_idx on public.assemblies(team_id);
 -- ------------------------------------------------------------ trigger
 -- Aggiorna updated_at/updated_by e riporta a "bozza" un dato verificato
 -- che viene modificato nel contenuto.
+-- Nota: le colonne generate (cost_total, co2e_total) vanno escluse dal
+-- confronto, perché in un trigger BEFORE UPDATE non sono ancora valorizzate.
 create or replace function public.touch_review()
 returns trigger
 language plpgsql
@@ -100,8 +100,12 @@ begin
 
   if tg_op = 'UPDATE' then
     if old.status = 'verificato' and new.status = 'verificato' then
-      new_payload := to_jsonb(new) - 'status' - 'updated_at' - 'updated_by' - 'updated_by_email';
-      old_payload := to_jsonb(old) - 'status' - 'updated_at' - 'updated_by' - 'updated_by_email';
+      new_payload := to_jsonb(new)
+        - 'status' - 'updated_at' - 'updated_by' - 'updated_by_email'
+        - 'cost_total' - 'co2e_total';
+      old_payload := to_jsonb(old)
+        - 'status' - 'updated_at' - 'updated_by' - 'updated_by_email'
+        - 'cost_total' - 'co2e_total';
       if new_payload <> old_payload then
         new.status := 'bozza';
       end if;
@@ -119,7 +123,7 @@ drop trigger if exists components_touch on public.components;
 create trigger components_touch before insert or update on public.components
 for each row execute function public.touch_review();
 
--- Profilo creato automaticamente alla registrazione.
+-- Profilo creato automaticamente alla registrazione (fase accesso).
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -157,20 +161,21 @@ create policy assemblies_read on public.assemblies for select using (true);
 drop policy if exists components_read on public.components;
 create policy components_read on public.components for select using (true);
 
--- Scrittura: qualsiasi utente autenticato, su qualsiasi team.
+-- Scrittura in fase sperimentale: nessun login richiesto.
+-- Per richiudere: esegui supabase/lock-down.sql e NEXT_PUBLIC_AUTH_ENABLED=true.
 drop policy if exists assemblies_insert on public.assemblies;
-create policy assemblies_insert on public.assemblies for insert to authenticated with check (true);
+create policy assemblies_insert on public.assemblies for insert to anon, authenticated with check (true);
 drop policy if exists assemblies_update on public.assemblies;
-create policy assemblies_update on public.assemblies for update to authenticated using (true) with check (true);
+create policy assemblies_update on public.assemblies for update to anon, authenticated using (true) with check (true);
 drop policy if exists assemblies_delete on public.assemblies;
-create policy assemblies_delete on public.assemblies for delete to authenticated using (true);
+create policy assemblies_delete on public.assemblies for delete to anon, authenticated using (true);
 
 drop policy if exists components_insert on public.components;
-create policy components_insert on public.components for insert to authenticated with check (true);
+create policy components_insert on public.components for insert to anon, authenticated with check (true);
 drop policy if exists components_update on public.components;
-create policy components_update on public.components for update to authenticated using (true) with check (true);
+create policy components_update on public.components for update to anon, authenticated using (true) with check (true);
 drop policy if exists components_delete on public.components;
-create policy components_delete on public.components for delete to authenticated using (true);
+create policy components_delete on public.components for delete to anon, authenticated using (true);
 
 -- Il profilo è leggibile e modificabile solo dal proprietario.
 drop policy if exists profiles_self_read on public.profiles;
