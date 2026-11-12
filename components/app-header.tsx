@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { AUTH_ENABLED } from "@/lib/config";
 import { AuthDialog } from "./dialogs";
 
 export function AppHeader() {
@@ -42,7 +43,7 @@ export function AppHeader() {
           </nav>
 
           <div className="header-actions">
-            {email ? (
+            {!AUTH_ENABLED ? null : email ? (
               <>
                 <span className="session-chip" title={email}>
                   <span className="session-chip__dot" aria-hidden="true" />
@@ -65,7 +66,7 @@ export function AppHeader() {
         </div>
       </header>
 
-      {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} />}
+      {AUTH_ENABLED && authOpen && <AuthDialog onClose={() => setAuthOpen(false)} />}
     </>
   );
 }

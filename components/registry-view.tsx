@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { AUTH_ENABLED } from "@/lib/config";
 import { loadRegistry, emptyRegistry } from "@/lib/queries";
 import { dateIt, eur, kg, num, pct, toNumber } from "@/lib/format";
 import {
@@ -94,6 +95,7 @@ export function RegistryView() {
   };
 
   const requireSession = (reason: string): boolean => {
+    if (!AUTH_ENABLED) return true;
     if (session) return true;
     setAuthReason(reason);
     setAuthOpen(true);
@@ -255,15 +257,19 @@ export function RegistryView() {
 
       <main className="wrap">
         {loadError ? <p className="notice" style={{ marginTop: 24 }}>{loadError}</p> : null}
+        {!AUTH_ENABLED ? (
+          <p className="form-note" style={{ marginTop: 24 }}>
+            Fase sperimentale: il sito è aperto, chiunque abbia il link può inserire e modificare i dati.
+            L&apos;accesso con email resta predisposto e verrà attivato più avanti.
+          </p>
+        ) : null}
         {flash ? <p className="form-ok" style={{ marginTop: 24 }}>{flash}</p> : null}
 
         {/* ---------------------------------------------------- panoramica */}
         <section className="section" id="panoramica">
           <div className="section__head">
             <div>
-              <p className="eyebrow">
-                <span className="eyebrow__num">01</span>Panoramica
-              </p>
+              <p className="eyebrow">Panoramica</p>
               <h1 className="section__title">Il costo e il peso della monoposto</h1>
               <p className="section__note">
                 Totali calcolati dai componenti inseriti dai team. Modificare un dato verificato lo riporta
@@ -373,9 +379,7 @@ export function RegistryView() {
         <section className="section" id="assiemi">
           <div className="section__head">
             <div>
-              <p className="eyebrow">
-                <span className="eyebrow__num">02</span>Assiemi
-              </p>
+              <p className="eyebrow">Assiemi</p>
               <h2 className="section__title">Un assieme per ogni gruppo di pezzi</h2>
               <p className="section__note">
                 Ogni assieme appartiene a un sistema ufficiale e a un team. I componenti vivono dentro
@@ -474,9 +478,7 @@ export function RegistryView() {
         <section className="section" id="componenti">
           <div className="section__head">
             <div>
-              <p className="eyebrow">
-                <span className="eyebrow__num">03</span>Registro componenti
-              </p>
+              <p className="eyebrow">Registro componenti</p>
               <h2 className="section__title">La BOM, pezzo per pezzo</h2>
               <p className="section__note">
                 Cerca, filtra ed esporta. Il costo totale e la CO₂e totale sono quantità × valore unitario.
@@ -655,14 +657,14 @@ export function RegistryView() {
         </section>
 
         <footer className="footer">
-          <span>Poliba Corse · Cost Management</span>
+          <span>Cost Management</span>
           <span>
-            <Link href="/">Panoramica pubblica</Link> · <a href={exportHref}>Excel</a>
+            <Link href="/">Panoramica</Link> · <a href={exportHref}>Excel</a>
           </span>
         </footer>
       </main>
 
-      {authOpen ? (
+      {AUTH_ENABLED && authOpen ? (
         <AuthDialog
           onClose={() => setAuthOpen(false)}
           teams={teams}
