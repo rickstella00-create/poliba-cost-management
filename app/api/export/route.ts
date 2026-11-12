@@ -157,7 +157,7 @@ export async function GET(request: Request) {
     row.getCell(19).numFmt = "dd/mm/yyyy";
   });
 
-  const lastRow = Math.max(2, sheet.rowCount);
+  const lastDataRow = Math.max(2, rows.length + 1);
 
   /* --------------------------------------------------- foglio 2: riepilogo */
   const summary = workbook.addWorksheet("Riepilogo");
@@ -189,32 +189,73 @@ export async function GET(request: Request) {
     ).values(),
   ).sort((a, b) => a.localeCompare(b));
 
+  const emptyTotals = { cost: 0, co2: 0, count: 0 };
+
+  const sumRow = (component: ComponentExport) => {
+    const quantity = Number(component.quantity ?? 0);
+    return {
+      cost: quantity * Number(component.unit_cost ?? 0),
+      co2: quantity * Number(component.co2e_unit ?? 0),
+      count: 1,
+    };
+  };
+
+  const aggregate = (key: "system" | "team", name: string) =>
+    rows.reduce((acc, component) => {
+      const assembly = assemblyById.get(component.assembly_id);
+      const label = key === "system" ? assembly?.systems?.name : assembly?.teams?.name;
+      if (label !== name) return acc;
+      const item = sumRow(component);
+      return {
+        cost: acc.cost + item.cost,
+        co2: acc.co2 + item.co2,
+        count: acc.count + item.count,
+      };
+    }, { ...emptyTotals });
+
+  // Il totale resta una formula viva, ma con il valore già calcolato:
+  // così i numeri si vedono appena apri il file. Senza righe non c'è nulla
+  // da sommare (una SUM su un intervallo al contrario sarebbe un errore).
+  const totalRowCell = (column: string, start: number, end: number, result: number) =>
+    (end >= start
+      ? { formula: `SUM(${column}${start}:${column}${end})`, result }
+      : result) as unknown as string;
+
   const systemStart = cursor;
 
   systemsInRows.forEach((name) => {
     const row = summary.addRow([name, 0, 0, 0]);
+    const item = aggregate("system", name);
     row.getCell(2).value = {
-      formula: `SUMIF(Componenti!$C$2:$C$${lastRow + 1},$A${row.number},Componenti!$H$2:$H$${lastRow + 1})`,
-      result: 0,
+      formula: `SUMIF(Componenti!$C$2:$C$${lastDataRow},$A${row.number},Componenti!$H$2:$H$${lastDataRow})`,
+      result: item.cost,
     };
     row.getCell(3).value = {
-      formula: `SUMIF(Componenti!$C$2:$C$${lastRow + 1},$A${row.number},Componenti!$J$2:$J$${lastRow + 1})`,
-      result: 0,
+      formula: `SUMIF(Componenti!$C$2:$C$${lastDataRow},$A${row.number},Componenti!$J$2:$J$${lastDataRow})`,
+      result: item.co2,
     };
     row.getCell(4).value = {
-      formula: `COUNTIF(Componenti!$C$2:$C$${lastRow + 1},$A${row.number})`,
-      result: 0,
+      formula: `COUNTIF(Componenti!$C$2:$C$${lastDataRow},$A${row.number})`,
+      result: item.count,
     };
     row.getCell(2).numFmt = MONEY;
     row.getCell(3).numFmt = KG;
   });
 
   const systemEnd = summary.rowCount;
+  const grandTotals = rows.reduce(
+    (acc, component) => {
+      const item = sumRow(component);
+      return { cost: acc.cost + item.cost, co2: acc.co2 + item.co2, count: acc.count + item.count };
+    },
+    { ...emptyTotals },
+  );
+
   summary.addRow([
     "Totale sistemi",
-    { formula: `SUM(B${systemStart}:B${systemEnd})` } as unknown as string,
-    { formula: `SUM(C${systemStart}:C${systemEnd})` } as unknown as string,
-    { formula: `SUM(D${systemStart}:D${systemEnd})` } as unknown as string,
+    totalRowCell("B", systemStart, systemEnd, grandTotals.cost),
+    totalRowCell("C", systemStart, systemEnd, grandTotals.co2),
+    totalRowCell("D", systemStart, systemEnd, grandTotals.count),
   ]).font = { bold: true };
 
   summary.addRow([]);
@@ -238,17 +279,18 @@ export async function GET(request: Request) {
 
   teamsInRows.forEach((name) => {
     const row = summary.addRow([name, 0, 0, 0]);
+    const item = aggregate("team", name);
     row.getCell(2).value = {
-      formula: `SUMIF(Componenti!$D$2:$D$${lastRow + 1},$A${row.number},Componenti!$H$2:$H$${lastRow + 1})`,
-      result: 0,
+      formula: `SUMIF(Componenti!$D$2:$D$${lastDataRow},$A${row.number},Componenti!$H$2:$H$${lastDataRow})`,
+      result: item.cost,
     };
     row.getCell(3).value = {
-      formula: `SUMIF(Componenti!$D$2:$D$${lastRow + 1},$A${row.number},Componenti!$J$2:$J$${lastRow + 1})`,
-      result: 0,
+      formula: `SUMIF(Componenti!$D$2:$D$${lastDataRow},$A${row.number},Componenti!$J$2:$J$${lastDataRow})`,
+      result: item.co2,
     };
     row.getCell(4).value = {
-      formula: `COUNTIF(Componenti!$D$2:$D$${lastRow + 1},$A${row.number})`,
-      result: 0,
+      formula: `COUNTIF(Componenti!$D$2:$D$${lastDataRow},$A${row.number})`,
+      result: item.count,
     };
     row.getCell(2).numFmt = MONEY;
     row.getCell(3).numFmt = KG;
@@ -257,9 +299,9 @@ export async function GET(request: Request) {
   const teamEnd = summary.rowCount;
   summary.addRow([
     "Totale team",
-    { formula: `SUM(B${teamStart}:B${teamEnd})` } as unknown as string,
-    { formula: `SUM(C${teamStart}:C${teamEnd})` } as unknown as string,
-    { formula: `SUM(D${teamStart}:D${teamEnd})` } as unknown as string,
+    totalRowCell("B", teamStart, teamEnd, grandTotals.cost),
+    totalRowCell("C", teamStart, teamEnd, grandTotals.co2),
+    totalRowCell("D", teamStart, teamEnd, grandTotals.count),
   ]).font = { bold: true };
 
   const buffer = await workbook.xlsx.writeBuffer();
