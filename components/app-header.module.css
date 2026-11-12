@@ -1,0 +1,6 @@
+/* On narrow phones the header has no room left for the strapline. */
+@media (max-width: 480px) {
+  .brandSub {
+    display: none;
+  }
+}

@@ -8,6 +8,7 @@ import { AUTH_ENABLED } from "@/lib/config";
 import { LANGS, useI18n, type Lang } from "@/lib/i18n";
 import { AuthDialog } from "./dialogs";
 import styles from "./language-switch.module.css";
+import headerStyles from "./app-header.module.css";
 
 const LANG_LABELS: Record<Lang, string> = { en: "EN", it: "IT" };
 
@@ -50,7 +51,7 @@ export function AppHeader() {
           <Link href="/" className="brand" aria-label={t("nav.home")}>
             <span className="brand__text">
               <span className="brand__title">Cost &amp; Emissions</span>
-              <span className="brand__sub">{t("brand.sub")}</span>
+              <span className={`brand__sub ${headerStyles.brandSub}`}>{t("brand.sub")}</span>
             </span>
           </Link>
 
